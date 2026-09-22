@@ -9,3 +9,13 @@ wheels/
 # Virtual environments
 .venv
 .commandcode
+
+# Datos de ensayo (videos del profesor, grabaciones, frames)
+datos/*
+!datos/.gitkeep
+*.mp4
+*.mov
+
+# Configuración local de calibración
+config_local.json
+.DS_Store

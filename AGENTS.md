@@ -1,39 +1,68 @@
-# Memory
+# Guía para agentes (y para nosotros)
 
-## Project Overview
-See @README.md for project overview and @pyproject.toml for dependencies and project configuration.
+Este archivo manda sobre cómo se trabaja en este repo. `CLAUDE.md` apunta aquí.
 
-## Reto (especificación)
-La especificación completa del reto está en @Reto-1.docx. Resumen:
-- Programar el "cerebro" de un robot móvil autónomo que sigue una línea guía sobre una pista.
-- Debe procesar imágenes de la cámara en tiempo real y decidir el movimiento del robot.
-- Debe reconocer dos señales de tránsito: octágono rojo (PARE, detenerse) y octágono verde (SIGA, continuar).
+## Qué es esto
 
-## Restricciones técnicas (OBLIGATORIO)
-- Solo se pueden usar los temas trabajados en los notebooks de @resources. Cada técnica del algoritmo debe estar respaldada por uno de estos notebooks:
-  - `resources/1_Fundamentación.ipynb`: creación y manipulación básica de imágenes, canales BGR/RGB, mostrar imágenes.
-  - `resources/2_Espacios_de_Color.ipynb`: espacios de color RGB, HSV y CIELAB, conversiones entre ellos y segmentación por color.
-  - `resources/3_OperacionesMatemáticas.ipynb`: operaciones aritméticas (resta) y lógicas (AND), uso de máscaras.
-  - `resources/4_Kmeans_Imagenes.ipynb`: K-Means en su modalidad básica sobre imágenes.
-- NO está permitido usar temas que no estén en los notebooks, en particular:
-  - Redes neuronales artificiales ni deep learning.
-  - Modelos previamente entrenados.
-  - Detectores tipo YOLO, SSD, Faster R-CNN u otros equivalentes.
-  - Cascadas Haar.
-  - Servicios externos de inteligencia artificial.
-  - Librerías o algoritmos que hagan la detección de la línea o las señales automáticamente sin implementar la lógica.
-- Si una solución requiere una técnica que no aparece en los notebooks, no la uses: busca una alternativa con los temas disponibles.
+El "cerebro" de un robot seguidor de línea para el reto 1 de Visión Artificial (UCaldas 2026-2). Lee la cámara en tiempo real, sigue la línea guía y obedece un octágono rojo (PARE) y uno verde (SIGA). Contexto completo en @README.md y @docs/arquitectura.md.
 
-## Code Style Guidelines
-- Use descriptive variable names.
-- Follow existing patterns in the codebase.
-- Extract complex conditions into meaningful boolean variables.
-- Sigue las mejores prácticas de programación y mantén las cosas lo más simples posible.
-- Agrega comentarios útiles que expliquen la lógica de cada etapa del algoritmo (segmentación, detección de línea, detección de señales, control).
-- El código debe ser comprensible y estar organizado por etapas, para poder explicar cómo funciona cada parte.
+## Reglas duras del reto
 
-## Architecture Notes
-Add important architectural decisions and patterns here.
+**Solo se usan técnicas vistas en el curso.** La lista oficial, con dónde vimos cada una, está en @docs/reto/tecnicas-permitidas.md. Resumen:
 
-## Common Workflows
-Document frequently used workflows and commands here.
+- **Permitido:** operaciones aritméticas y lógicas, máscaras, espacios de color (RGB, HSV, CIELab), ROI, redimensionar y rotar, umbralización, segmentación por color, K-Means básico, morfología, suavizado, Canny, contornos y sus propiedades (área, perímetro, centroide, aproximación poligonal, relación de aspecto), identificación de formas simples.
+- **Prohibido:** redes neuronales, deep learning, modelos preentrenados, YOLO / SSD / Faster R-CNN, cascadas Haar, servicios externos de IA, y cualquier librería que detecte la línea o las señales por nosotros.
+- Si algo parece necesitar una técnica que no está en la lista, **no la uses**: busca una alternativa con lo disponible, o déjalo anotado en la zona gris de ese documento para preguntarle al profesor.
+- Cada función que use una técnica dice en su docstring de qué clase sale. Eso es lo que se sustenta después.
+
+## Arquitectura
+
+Un frame entra, una `Decision` sale. Ver @docs/arquitectura.md. Lo esencial:
+
+- Los contratos entre módulos están en @reto/tipos.py. **No se cambian sin avisarle a los otros dos**, porque cada quien programa contra ellos.
+- Todos los umbrales van en @reto/config.py. **Ningún número mágico en la lógica.**
+- Un archivo por etapa: `camara`, `linea`, `senales`, `control`, `pipeline`, `overlay`.
+- `control.py` no usa OpenCV: es lógica pura y se prueba con `tools/probar_control.py`.
+
+## Quién es dueño de qué
+
+| Archivo | Dueño |
+|---|---|
+| `reto/camara.py`, `main.py` | Santiago |
+| `reto/pipeline.py`, `reto/linea.py` | Daniel |
+| `reto/senales.py`, `reto/control.py`, `docs/` | Juan David |
+| `reto/tipos.py`, `reto/config.py` | los tres, de común acuerdo |
+
+Antes de editar el archivo de otro, avisar. Si hace falta algo de su módulo, se acuerda en `tipos.py`.
+
+## Estilo de código
+
+- Español en nombres, comentarios y docstrings.
+- Nombres descriptivos; condiciones complejas se extraen a variables con nombre.
+- Comentarios que expliquen **la etapa del algoritmo**, no lo que ya dice el código.
+- Lo más simple que funcione. Este código hay que poder explicarlo de memoria en la sustentación.
+- Funciones cortas, una responsabilidad por función, y que se puedan probar sin cámara cuando se pueda.
+
+## Comandos
+
+```bash
+uv sync                                  # instalar todo
+uv run main.py --fuente <url|video|0>    # correr el cerebro
+uv run main.py --mascaras                # ver las máscaras para calibrar
+uv run python tools/probar_control.py    # pruebas de la máquina de estados
+uv run python tools/sync_apuntes.py      # traer los apuntes de clase al repo
+uv run python tools/notebooks.py limpiar <in.ipynb> <out.ipynb>
+```
+
+## Qué no hacer
+
+- No agregar dependencias sin discutirlo: cada librería nueva hay que justificarla frente a las restricciones del reto.
+- No subir videos ni grabaciones al repo (`datos/` está en `.gitignore`).
+- No meter los notebooks pesados del profesor al repo: van limpios (`tools/notebooks.py`).
+- No dejar umbrales dentro de la lógica: van a `config.py`.
+- No cambiar los contratos de `tipos.py` sin avisar.
+
+## Después de cada avance
+
+- Si el cambio fue una decisión de diseño, se escribe un archivo corto en `docs/decisiones/` (hay plantilla).
+- Si fue un ensayo con la pista, se llena la entrada del día en `docs/bitacora.md`. De ahí salen el póster y el análisis de resultados, que son dos criterios completos de la rúbrica.

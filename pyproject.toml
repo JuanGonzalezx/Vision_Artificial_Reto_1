@@ -1,9 +1,15 @@
 [project]
 name = "challenge-1"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reto 1 - cerebro de un robot seguidor de linea (Vision Artificial, UCaldas)"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "opencv-python>=5.0.0.93",
+    "numpy>=2.0",
+    "scikit-learn>=1.5",   # K-Means de la clase 4
+    "matplotlib>=3.9",     # graficas de los notebooks del profesor
 ]
+
+[tool.uv]
+package = false
