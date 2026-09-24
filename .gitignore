@@ -19,3 +19,5 @@ datos/*
 # Configuración local de calibración
 config_local.json
 .DS_Store
+
+.vscode/
