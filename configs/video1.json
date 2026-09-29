@@ -1,0 +1,5 @@
+{
+  "vertices_octagono": [4, 4],
+  "relacion_aspecto_octagono": [0.6, 1.6],
+  "circularidad_minima": 0.6
+}
