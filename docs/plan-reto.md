@@ -2,7 +2,7 @@
 
 > **Documento central del proyecto.** Aquí se define qué hay que construir (requisitos), cómo se sabe que está bien (criterios de aceptación y Definition of Done) y quién hace qué (plan de tareas). Si algo del código o de otro documento contradice esto, se corrige uno de los dos y se registra en el [registro de cambios](#15-registro-de-cambios).
 >
-> Versión 1.0 · 2026-09-28 · Reglas del repo en [`AGENTS.md`](../AGENTS.md) · Técnicas auditadas con `auditor-tecnicas` contra [`tecnicas-permitidas.md`](reto/tecnicas-permitidas.md).
+> Versión 1.3 · 2026-09-28 · Reglas del repo en [`AGENTS.md`](../AGENTS.md) · Técnicas auditadas con `auditor-tecnicas` contra [`tecnicas-permitidas.md`](reto/tecnicas-permitidas.md).
 
 ## Contenido
 
@@ -45,12 +45,12 @@
 | **Prueba real** | Ensayos en pista y competencia | `uv run main.py --fuente http://IP:PUERTO/ [--usuario u --contrasena p]` | Cámara del celular por WiFi (IP Camera Lite) |
 | Otro video | Videos del profesor o grabaciones propias | `uv run main.py --fuente datos/videos/<x>.mp4` | Archivo |
 | Webcam | Pruebas rápidas de color con objetos en mano | `uv run main.py --fuente 0` | Webcam del PC |
-| Sin ventanas | Métricas objetivas (DoD) | `uv run python tools/evaluar_video.py [video]` *(T1.1, por construir)* | Archivo |
+| Sin ventanas | Métricas objetivas (DoD) | `uv run python tools/evaluar_video.py [video] [--config json] [--csv f.csv]` *(T1.1, hecho)* | Archivo |
 
 Reglas:
 
 - La variable de entorno `CAMARA_URL` reemplaza la fuente por defecto. Así cada integrante puede dejar fija la IP de su celular sin tocar el código.
-- `--config <json>` carga una calibración sin tocar el código. Perfiles versionados en `configs/` (T1.2).
+- `--config <json>` carga una calibración sin tocar el código. Perfiles versionados en `configs/`: `video1.json` (señales cuadradas) y `video1-kmeans.json` (calibrado con `tools/calibrar.py`).
 - `vid/video1.mp4` **no se sube al repo** (`*.mp4` está en `.gitignore`). Cada integrante lo pone en `vid/` de su copia local.
 - Un requisito se considera **cumplido** solo cuando pasa en desarrollo (video1) **y** en prueba real (celular). Pasar solo con el video no basta.
 
@@ -103,11 +103,11 @@ Cada requisito tiene un criterio de aceptación **verificable**. "Video1" = `vid
 
 | ID | Prio | Requisito | Criterio de aceptación |
 |---|---|---|---|
-| RF-04 | M | Segmentar la línea dentro de la ROI cercana y de la lejana, excluyendo el chasis del robot | En `--mascaras`, la máscara de línea no tiene píxeles del chasis en ningún frame del video1 |
-| RF-05 | M | Calcular el centro de la línea (centroide del contorno principal) y su desviación normalizada | Video1: línea detectada en **≥ 95 %** de los frames. La cinta transversal parte la línea cuando la señal la tapa (frames ~106–125); fuera de esa ventana la desviación no salta más de 0.3 entre frames seguidos, y dentro no más de 0.6 |
-| RF-06 | M | El signo de la desviación corresponde al lado de la línea | En `tools/probar_linea.py`: línea sintética a la izquierda da desviación < −0.3, a la derecha > +0.3, al centro \|d\| < 0.1. Espejar la imagen invierte el signo |
-| RF-07 | M | Reportar "no detectada" si no hay línea o si su área es menor a `area_minima_linea` | ROI en blanco o solo ruido: `detectada = False` y ninguna excepción |
-| RF-08 | S | Anticipar curvas combinando la franja cercana con la lejana (`peso_linea_lejana`) | Ya implementado en `pipeline.combinar_franjas`. En la curva de los frames 250–300, la desviación combinada empieza a crecer antes que la de la franja cercana sola |
+| RF-04 | M | Segmentar la línea dentro de la ROI cercana y de la lejana, excluyendo el chasis del robot | En `--mascaras`, la máscara de línea no tiene píxeles del chasis en ningún frame del video1 (✅ 2026-09-28 en video1; falta celular) |
+| RF-05 | M | Calcular el centro de la línea (centroide del contorno principal) y su desviación normalizada | Video1: línea detectada en **≥ 95 %** de los frames. La cinta transversal parte la línea cuando la señal la tapa (frames ~106–125); fuera de esa ventana la desviación no salta más de 0.3 entre frames seguidos, y dentro no más de 0.6 (✅ 2026-09-28: 99.1 %, salto máx. 0.54 en el frame 122; falta celular) |
+| RF-06 | M | El signo de la desviación corresponde al lado de la línea | En `tools/probar_linea.py`: línea sintética a la izquierda da desviación < −0.3, a la derecha > +0.3, al centro \|d\| < 0.1. Espejar la imagen invierte el signo (✅ 2026-09-28: `probar_linea.py` pasa) |
+| RF-07 | M | Reportar "no detectada" si no hay línea o si su área es menor a `area_minima_linea` | ROI en blanco o solo ruido: `detectada = False` y ninguna excepción (✅ 2026-09-28: `probar_linea.py` pasa) |
+| RF-08 | S | Anticipar curvas combinando la franja cercana con la lejana (`peso_linea_lejana`) | Ya implementado en `pipeline.combinar_franjas`. En la curva de los frames 250–300, la desviación combinada empieza a crecer antes que la de la franja cercana sola (✅ implementado; medición fina pendiente) |
 
 ### 5.3 Señales
 
@@ -133,9 +133,9 @@ Cada requisito tiene un criterio de aceptación **verificable**. "Video1" = `vid
 
 | ID | Prio | Requisito | Criterio de aceptación |
 |---|---|---|---|
-| RF-19 | S | Calibrar los rangos HSV con K-Means (clase 4) a partir de un frame real y guardarlos como JSON | `tools/calibrar.py --fuente vid/video1.mp4` genera un JSON que, cargado con `--config`, cumple RF-05 y RF-09. Recalibrar toma < 60 s |
+| RF-19 | S | Calibrar los rangos HSV con K-Means (clase 4) a partir de un frame real y guardarlos como JSON | `tools/calibrar.py --fuente vid/video1.mp4` genera un JSON que, cargado con `--config`, cumple RF-05 y RF-09. Recalibrar toma < 60 s (🟡 2026-09-28: `calibrar.py` listo, línea 99.0 % en video1; rojo y verde por validar con F3) |
 | RF-20 | M | HUD con estado, acción, razón, FPS y ROI dibujadas; mosaico de máscaras con `--mascaras` | ✅ Existe. Tiene que seguir funcionando con las ROI nuevas |
-| RF-21 | S | Registro por frame en CSV: `t, frame, fps, estado, accion, giro, desviacion, linea_detectada, senal, area_senal` | `main.py --registro corrida.csv` y `evaluar_video.py` lo escriben; se abre en pandas o Excel sin errores |
+| RF-21 | S | Registro por frame en CSV: `t, frame, fps, estado, accion, giro, desviacion, linea_detectada, senal, area_senal` | `main.py --registro corrida.csv` y `evaluar_video.py` lo escriben; se abre en pandas o Excel sin errores (🟡 `evaluar_video.py --csv` ya lo escribe; falta `main.py --registro` (T5.1)) |
 | RF-22 | C | Grabar la vista con el HUD a un `.mp4` (`--grabar`) | Requiere respuesta de P-06. El archivo se reproduce y dura lo mismo que la corrida |
 | RF-23 | C | Enviar la `Decision` al robot físico (`reto/actuador.py`) | Depende de P-02. Ningún otro módulo cambia (arquitectura §3) |
 
@@ -376,12 +376,21 @@ Al 2026-09-28.
 | Póster y análisis | ⬜ 0 |
 | Auditoría de técnicas | ✅ Sin hallazgos |
 
-**Próximo paso:** T0.2 a T0.5 (desbloqueo, Santiago y Juan David) y F3 (señales). F2 falta solo por validarse con video real del celular.
+**Avance de Daniel (rama `feat/linea-y-medicion`, sin PR todavía):** T0.1, T0.6, T1.1, T1.2, T2.1–T2.5, T4.1, T4.2 y T4.4 hechas. Con `configs/video1-kmeans.json`: línea 99.0 %, salto máx. 0.56 (frame 110, dentro de la cinta), máx. 3 frames seguidos en BUSCAR, 2–3 ms/frame. `probar_linea.py` y `probar_control.py` pasan.
+
+**Pendiente de mi lado:** T2.6 (opcional, no hace falta), T4.3 (validar rojo y verde cuando F3 exista), T5.1 (`--registro`, es de Santiago) y validar F2 con video del celular.
+
+**Cambios en archivos compartidos, por avisar a Santiago y Juan David:** `tipos.Estado.ultimo_centro_linea`, `config.ancho_maximo_linea`, ROI nuevas en `config.py` y `procesar_frame(..., ahora)`.
+
+**Bloqueos:** T0.2–T0.5 (Santiago y Juan David) y F3 (Juan David). Sin T0.2 no se puede validar la línea con el celular real.
+
+**Próximo paso:** abrir PR con esta rama, T0.2–T0.5 y F3.
 
 ## 15. Registro de cambios
 
 | Fecha | Versión | Cambio |
 |---|---|---|
+| 2026-09-28 | 1.3 | Estado por requisito (RF-04..08, 19, 21), avance de Daniel, cambios compartidos y bloqueos en la sección 14 |
 | 2026-09-28 | 1.2 | F4: `tools/calibrar.py` (T4.1, T4.2) y decisión 0003 (T4.4). T4.3 queda pendiente hasta tener F3 |
 | 2026-09-28 | 1.1 | RF-05: criterio de saltos relajado a 0.6 dentro de la ventana de la cinta transversal (medido en video1). T0.6, T1.1, T1.2 y F2 hechas |
 | 2026-09-28 | 1.0 | Primera especificación: requisitos, DoD, plan por fases y medición de video1. Fuente de desarrollo por defecto = `vid/video1.mp4` |
