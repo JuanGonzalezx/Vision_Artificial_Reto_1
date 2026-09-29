@@ -252,10 +252,10 @@ Las fases F2 y F3 van **en paralelo** (archivos distintos, contrato común en `t
 
 ### F4 — Calibración con K-Means (Daniel, apoyo de Santiago) · diferenciador
 
-- [ ] **T4.1** · `tools/calibrar.py --fuente <video|imagen> [--frame N] --k 5`: toma el frame, recorta la ROI sin el chasis, lo pasa a HSV y corre `KMeans` sobre los píxeles. Muestra los centroides como parches numerados · F2, F3 · RF-19.
-- [ ] **T4.2** · El usuario elige qué cluster es línea, rojo y verde. El script calcula cada rango (centroide ± k·desviación estándar por canal, con H del rojo que da la vuelta en 0/179) y lo guarda con `Config.guardar()` en `configs/` · T4.1 · RF-19.
+- [x] **T4.1** · `tools/calibrar.py --fuente <video|imagen> [--frame N] --k 5`: toma el frame, recorta la ROI sin el chasis, lo pasa a HSV y corre `KMeans` sobre los píxeles. Muestra los centroides como parches numerados · F2, F3 · RF-19. *Hecho 2026-09-28.*
+- [x] **T4.2** · El usuario elige qué cluster es línea, rojo y verde. El script calcula cada rango (centroide ± k·desviación estándar por canal, con H del rojo que da la vuelta en 0/179) y lo guarda con `Config.guardar()` en `configs/` · T4.1 · RF-19. *Hecho 2026-09-28; la línea admite varios clusters (`--linea 3,5`).*
 - [ ] **T4.3** · Validar: la calibración generada desde video1 cumple los DoD de F2 y F3 · T4.2.
-- [ ] **T4.4** · `docs/decisiones/0003-calibracion-kmeans.md` · T4.3 · Diferenciación.
+- [x] **T4.4** · `docs/decisiones/0003-calibracion-kmeans.md` · T4.3 · Diferenciación.
 
 **DoD de F4:** recalibrar desde cero en < 60 s cronometrado, y la calibración resultante pasa `evaluar_video.py`.
 
@@ -370,7 +370,8 @@ Al 2026-09-28.
 | `linea.py` | ✅ Implementado (F2): 99.1 % de frames con línea, 2.3 ms/frame · ⬜ falta probar con video real del celular (T0.2) |
 | `senales.py` | ⬜ Stub; `circularidad` y `es_octagono` sí existen (F3) |
 | `evaluar_video.py`, `probar_linea.py` | ✅ |
-| `calibrar.py`, `probar_senales.py` | ⬜ Por crear |
+| `calibrar.py` | ✅ `configs/video1-kmeans.json`: línea 99.0 %, salto máx. 0.56 · ⬜ rojo y verde por validar con F3 (T4.3) |
+| `probar_senales.py` | ⬜ Por crear |
 | Ensayos en pista | ⬜ 0 |
 | Póster y análisis | ⬜ 0 |
 | Auditoría de técnicas | ✅ Sin hallazgos |
@@ -381,5 +382,6 @@ Al 2026-09-28.
 
 | Fecha | Versión | Cambio |
 |---|---|---|
+| 2026-09-28 | 1.2 | F4: `tools/calibrar.py` (T4.1, T4.2) y decisión 0003 (T4.4). T4.3 queda pendiente hasta tener F3 |
 | 2026-09-28 | 1.1 | RF-05: criterio de saltos relajado a 0.6 dentro de la ventana de la cinta transversal (medido en video1). T0.6, T1.1, T1.2 y F2 hechas |
 | 2026-09-28 | 1.0 | Primera especificación: requisitos, DoD, plan por fases y medición de video1. Fuente de desarrollo por defecto = `vid/video1.mp4` |
