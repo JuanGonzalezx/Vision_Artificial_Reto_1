@@ -1,0 +1,88 @@
+{
+  "ancho_proceso": 480,
+  "kernel_gauss": 5,
+  "roi_linea_cercana": [
+    0.38,
+    0.53
+  ],
+  "roi_linea_lejana": [
+    0.18,
+    0.38
+  ],
+  "hsv_linea": [
+    [
+      0,
+      0,
+      2
+    ],
+    [
+      179,
+      71,
+      150
+    ]
+  ],
+  "area_minima_linea": 300,
+  "ancho_maximo_linea": 0.5,
+  "kernel_morfologico": 3,
+  "iteraciones_apertura": 1,
+  "iteraciones_cierre": 2,
+  "roi_senal": [
+    0.0,
+    0.54
+  ],
+  "hsv_rojo_bajo": [
+    [
+      0,
+      131,
+      124
+    ],
+    [
+      1,
+      238,
+      232
+    ]
+  ],
+  "hsv_rojo_alto": [
+    [
+      165,
+      131,
+      124
+    ],
+    [
+      179,
+      238,
+      232
+    ]
+  ],
+  "hsv_verde": [
+    [
+      34,
+      86,
+      69
+    ],
+    [
+      110,
+      221,
+      173
+    ]
+  ],
+  "area_minima_senal": 800,
+  "precision_poligono": 0.03,
+  "vertices_octagono": [
+    7,
+    9
+  ],
+  "relacion_aspecto_octagono": [
+    0.75,
+    1.3
+  ],
+  "circularidad_minima": 0.7,
+  "frames_confirmacion_senal": 3,
+  "zona_muerta": 0.12,
+  "ganancia_giro": 1.2,
+  "peso_linea_lejana": 0.3,
+  "frames_para_buscar": 5,
+  "segundos_pare": 3.0,
+  "espera_entre_senales": 5.0,
+  "siga_reanuda": true
+}
