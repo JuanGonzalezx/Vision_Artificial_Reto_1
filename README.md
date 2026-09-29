@@ -4,6 +4,7 @@ Visión Artificial en Tiempo Real · Universidad de Caldas · 2026-2
 
 Algoritmo que lee en tiempo real la cámara del celular (por WiFi), sigue la línea guía de la pista y obedece dos señales: **octágono rojo = PARE** y **octágono verde = SIGA**. Solo con técnicas vistas en clase: nada de deep learning, modelos preentrenados ni detectores tipo YOLO.
 
+- **Especificación, requisitos, Definition of Done y plan del equipo: [docs/plan-reto.md](docs/plan-reto.md)**
 - Especificación del profesor: [docs/reto/especificacion.md](docs/reto/especificacion.md)
 - Rúbrica: [docs/reto/rubrica.md](docs/reto/rubrica.md)
 - Qué se puede usar y dónde lo vimos: [docs/reto/tecnicas-permitidas.md](docs/reto/tecnicas-permitidas.md)
@@ -40,8 +41,11 @@ uv sync
 ## Uso
 
 ```bash
-# Webcam del computador (para desarrollar)
+# Desarrollo: video de referencia vid/video1.mp4 (en bucle). No está en el repo: cada quien lo copia a vid/
 uv run main.py
+
+# Webcam del computador
+uv run main.py --fuente 0
 
 # Cámara del celular por WiFi (la IP la da la app de cámara IP)
 uv run main.py --fuente http://192.168.1.50:8080/video

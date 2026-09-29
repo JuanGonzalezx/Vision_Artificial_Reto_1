@@ -5,8 +5,11 @@ HUD y sale con 'q'. La lógica de visión está toda en `reto/`.
 
 Ejemplos de uso:
 
-    # Webcam del computador (para desarrollar)
+    # Video de desarrollo (vid/video1.mp4), se repite al terminar
     uv run main.py
+
+    # Webcam del computador
+    uv run main.py --fuente 0
 
     # Camara del iPhone/Android que transmite por red (sin contrasena)
     uv run main.py --fuente http://192.168.1.50:8081/
@@ -44,8 +47,16 @@ from reto.tipos import Estado
 VENTANA = "Reto 1 - cerebro del robot"
 VENTANA_MASCARAS = "Mascaras"
 
+# Fuente por defecto para desarrollar sin celular; las pruebas reales usan --fuente <url>.
+FUENTE_DESARROLLO = "vid/video1.mp4"
+
 # Cuantos frames seguidos pueden fallar antes de dar la camara por perdida.
 REINTENTOS = 5
+
+
+def es_archivo_de_video(fuente: str) -> bool:
+    """Un archivo se repite al terminar; una camara en vivo se reconecta."""
+    return os.path.isfile(fuente)
 
 
 def parsear_argumentos() -> argparse.Namespace:
@@ -56,10 +67,10 @@ def parsear_argumentos() -> argparse.Namespace:
     parser.add_argument(
         "--fuente",
         "-f",
-        default=os.environ.get("CAMARA_URL", "0"),
+        default=os.environ.get("CAMARA_URL", FUENTE_DESARROLLO),
         help=(
             "URL de la camara del telefono (http://IP:PUERTO/ o rtsp://...), "
-            "un archivo de video o un indice local como 0. Por defecto CAMARA_URL o 0."
+            f"un archivo de video o un indice local como 0. Por defecto CAMARA_URL o {FUENTE_DESARROLLO}."
         ),
     )
     parser.add_argument(
@@ -100,6 +111,10 @@ def main() -> None:
     print("Presiona 'q' en la ventana para salir.")
 
     captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena)
+    es_video = es_archivo_de_video(argumentos.fuente)
+    # Un video se reproduce a su velocidad real, para que los tiempos del control
+    # (segundos de PARE, esperas) se comporten como en la pista.
+    espera_ms = int(1000 / (captura.get(cv2.CAP_PROP_FPS) or 30)) if es_video else 1
     intentos_fallidos = 0
     inicio = time.time()
     frames = 0
@@ -107,6 +122,12 @@ def main() -> None:
     try:
         while True:
             ok, frame = captura.read()
+
+            # Fin del video de desarrollo: vuelve al inicio con el robot en estado limpio.
+            if not ok and es_video:
+                captura.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                estado = Estado()
+                continue
 
             # Si no llega un frame, la transmision pudo caerse: reintentamos.
             if not ok:
@@ -147,7 +168,7 @@ def main() -> None:
                     mosaico(depuracion["frame"], depuracion["mascaras"]),
                 )
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if cv2.waitKey(espera_ms) & 0xFF == ord("q"):
                 break
     finally:
         # Liberamos la camara y cerramos las ventanas al terminar.
