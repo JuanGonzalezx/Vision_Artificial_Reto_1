@@ -24,17 +24,18 @@ class Config:
 
     # --- Línea guía -------------------------------------------------------
     # Franjas del frame, en fracción del alto (0.0 arriba, 1.0 abajo).
-    roi_linea_cercana: tuple[float, float] = (0.70, 1.00)
-    roi_linea_lejana: tuple[float, float] = (0.50, 0.70)
+    roi_linea_cercana: tuple[float, float] = (0.38, 0.53)  # por encima del chasis (~0.54)
+    roi_linea_lejana: tuple[float, float] = (0.18, 0.38)
     # Por defecto: línea oscura sobre pista clara (V bajo). Calibrar con K-Means.
-    hsv_linea: Rango = ((0, 0, 0), (179, 255, 80))
+    hsv_linea: Rango = ((0, 0, 0), (179, 255, 110))
     area_minima_linea: int = 300
+    ancho_maximo_linea: float = 0.50   # contorno más ancho (fracción de la ROI) = cinta transversal, se ignora
     kernel_morfologico: int = 3
     iteraciones_apertura: int = 1
     iteraciones_cierre: int = 2
 
     # --- Señales ----------------------------------------------------------
-    roi_senal: tuple[float, float] = (0.00, 0.70)
+    roi_senal: tuple[float, float] = (0.00, 0.54)  # sin el chasis del robot
     # El rojo está en los dos extremos del círculo de H: necesita dos rangos.
     hsv_rojo_bajo: Rango = ((0, 120, 80), (10, 255, 255))
     hsv_rojo_alto: Rango = ((170, 120, 80), (179, 255, 255))

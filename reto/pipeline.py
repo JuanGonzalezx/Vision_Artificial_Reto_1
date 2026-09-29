@@ -40,16 +40,20 @@ def recortar(frame, franja: tuple[float, float]):
     return frame[y1:y2, :], y1
 
 
-def procesar_frame(frame, estado: Estado, config: Config) -> tuple[Decision, dict]:
+def procesar_frame(frame, estado: Estado, config: Config,
+                   ahora: float | None = None) -> tuple[Decision, dict]:
     """Ejecuta el algoritmo completo sobre un frame.
 
     Devuelve la decisión y un diccionario con los resultados intermedios,
-    que overlay usa para dibujar y nosotros para calibrar.
+    que overlay usa para dibujar y nosotros para calibrar. `ahora` permite
+    simular el reloj al evaluar un video sin ventanas.
     """
     preparado = preparar(frame, config)
 
     roi_cercana, desplazamiento = recortar(preparado, config.roi_linea_cercana)
-    linea: ResultadoLinea = modulo_linea.detectar(roi_cercana, config)
+    linea: ResultadoLinea = modulo_linea.detectar(roi_cercana, config, estado.ultimo_centro_linea)
+    if linea.detectada:  # si se pierde un instante, se conserva la última posición conocida
+        estado.ultimo_centro_linea = linea.centro_x
 
     roi_lejana, _ = recortar(preparado, config.roi_linea_lejana)
     linea_lejana: ResultadoLinea = modulo_linea.detectar(roi_lejana, config)
@@ -58,7 +62,7 @@ def procesar_frame(frame, estado: Estado, config: Config) -> tuple[Decision, dic
     senal: ResultadoSenal = modulo_senales.detectar(roi_senal, config)
 
     linea = combinar_franjas(linea, linea_lejana, config, desplazamiento)
-    decision = decidir(estado, linea, senal, config)
+    decision = decidir(estado, linea, senal, config, ahora)
 
     depuracion = {
         "frame": preparado,
