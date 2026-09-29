@@ -1,0 +1,50 @@
+digraph algoritmo {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=12, bgcolor="#fcfcfb", pad=0.3, nodesep=0.35, ranksep=0.42,
+         label="Un frame entra, una decisión sale  ·  [C1..C4] = clase donde vimos la técnica", labelloc=t, fontcolor="#52514e"];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, color="#c9c8c3", fillcolor="#ffffff", fontcolor="#0b0b0b", margin="0.18,0.08"];
+  edge  [color="#7d7c78", arrowsize=0.7, fontname="Helvetica", fontsize=9, fontcolor="#52514e"];
+
+  camara   [label="Cámara del celular (IP Camera Lite)\no video de ensayo", fillcolor="#eef4fc", color="#2a78d6"];
+  preparar [label="1. Preparar\nrotar · redimensionar a 480 px · Gauss 5×5\n[C1, C3]"];
+
+  subgraph cluster_linea {
+    label="Línea guía"; fontcolor="#2a78d6"; color="#b7d3f6"; style="rounded";
+    roi_l   [label="2. Franja cercana (ROI)\nsolo donde está la pista, no el carro\n[C1]"];
+    masc_l  [label="3. HSV + inRange por BRILLO\nV bajo, S bajo: lo negro\n[C1, C2]"];
+    morf_l  [label="4. Apertura + cierre\nquita motas, une la línea\n[C3]"];
+    cont_l  [label="5. Contorno más grande\n+ centroide por momentos\n[C3]"];
+    desv    [label="6. Desviación normalizada\n−1 izquierda … +1 derecha"];
+  }
+
+  subgraph cluster_senal {
+    label="Señales PARE / SIGA"; fontcolor="#b3261e"; color="#f5c6c5"; style="rounded";
+    roi_s   [label="7. Franja superior (ROI)\n[C1]"];
+    masc_s  [label="8. HSV + inRange por TONO\nrojo = 2 rangos · verde = 1\n[C1, C2]"];
+    morf_s  [label="9. Apertura + cierre\n[C3]"];
+    forma   [label="10. Contornos · área · aspecto\napproxPolyDP (¿octágono?)\n[C3]"];
+    tipo    [label="11. Tipo y área\nla más grande = la más cercana"];
+  }
+
+  congelar [label="12. ¿La señal tapa la franja de la línea?\nsí → mantener el rumbo que traíamos\n(la barra negra de la señal ensucia la máscara)", fillcolor="#fff7e6", color="#eda100"];
+  suavizar [label="13. Suavizar\npromedio de los últimos 3 frames [C2]"];
+  control  [label="14. Máquina de estados\nSIGUIENDO · DETENIDO · BUSCANDO\nzona muerta · confirmación en 3 frames", fillcolor="#eef4fc", color="#2a78d6"];
+  decision [label="Decisión\nRECTO · IZQUIERDA · DERECHA · PARAR · BUSCAR\n+ giro −1…+1 + razón", shape=box, style="rounded,filled,bold", fillcolor="#ffffff", color="#0b0b0b"];
+  actuador [label="15. Actuador del robot\npulsos w/a/d/x a 10 Hz\ngiro repartido en pulsos"];
+  robot    [label="mBot (firmware del profesor)\nw = 100 ms · a/d = 30 ms", fillcolor="#f0efec"];
+  hud      [label="HUD · CSV · video\n(evidencia para el póster)", fillcolor="#f0efec"];
+  kmeans   [label="Calibración, ANTES de correr\nK-Means sobre una foto de la pista\npropone los rangos HSV · la evaluación decide\n[C4]", fillcolor="#f3f0fb", color="#4a3aa7", fontcolor="#0b0b0b"];
+
+  camara -> preparar;
+  kmeans -> masc_l [style=dashed, color="#4a3aa7", label=" rangos"];
+  kmeans -> masc_s [style=dashed, color="#4a3aa7", label=" rangos"];
+  {rank=same; camara; kmeans}
+  preparar -> roi_l; preparar -> roi_s;
+  roi_l -> masc_l -> morf_l -> cont_l -> desv;
+  roi_s -> masc_s -> morf_s -> forma -> tipo;
+  desv -> congelar; tipo -> congelar [style=dashed, label=" posición de la señal"];
+  congelar -> suavizar -> control;
+  tipo -> control [label=" PARE / SIGA"];
+  control -> decision;
+  decision -> actuador -> robot;
+  decision -> hud;
+}

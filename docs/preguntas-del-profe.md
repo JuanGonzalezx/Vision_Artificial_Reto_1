@@ -52,6 +52,9 @@ Porque lo medimos en sus propios videos de ensayo: ahí las señales son cartuli
 **¿Y así no confunden cualquier cosa roja con un PARE?**
 En los 5 videos de descarrilamiento, donde no hay señales, tenemos 0 detecciones. Además del color pedimos área mínima, forma compacta (ni tira larga ni delgada) y que aparezca en varios frames seguidos.
 
+**¿Qué pasa cuando la señal está encima de la línea?**
+Lo detectamos graficando la desviación en el tiempo: la señal va sobre una barra negra que cruza la pista, y esa barra entra en la máscara de la línea (es negra igual que la línea) y mueve el centroide. Por eso, mientras la caja de la señal toque la franja de la línea, mantenemos el rumbo que traíamos. Medido: el p95 del cambio de desviación con señal a la vista bajó de 0.135 a 0.017. El costo: durante ese segundo o dos el robot no sigue una curva.
+
 ## Sobre el control
 
 **¿Cómo deciden si va a la izquierda o a la derecha?**

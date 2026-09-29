@@ -29,7 +29,8 @@ def franja_a_pixeles(alto: int, franja: tuple[float, float]) -> tuple[int, int]:
 
 
 def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decision,
-            estado: Estado, config: Config, fps: float = 0.0, curvatura: float = 0.0):
+            estado: Estado, config: Config, fps: float = 0.0, curvatura: float = 0.0,
+            congelada: bool = False):
     """Devuelve una copia del frame con la información encima."""
     salida = frame.copy()
     alto, ancho = salida.shape[:2]
@@ -57,6 +58,9 @@ def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decis
         color = ROJO if senal.tipo == "PARE" else VERDE
         forma = "octagono" if senal.es_octagono else f"{senal.vertices} lados"
         _texto(salida, f"{senal.tipo} ({forma}, area {senal.area:.0f})", 10, 71, color, 0.55)
+
+    if congelada:
+        _texto(salida, "rumbo congelado: senal sobre la linea", 10, 117, AMARILLO, 0.5)
 
     if abs(curvatura) > config.umbral_curvatura:
         lado = "derecha" if curvatura > 0 else "izquierda"

@@ -80,6 +80,13 @@ class Config:
     # esto en True no se detectaría ninguna. La forma suma confianza
     # (ResultadoSenal.es_octagono), pero no descarta.
     exigir_octagono: bool = False
+    # Las señales van montadas sobre una barra negra que cruza la pista. Cuando
+    # la señal llega a la franja de la línea, esa barra entra en la máscara y
+    # tira el centroide hacia un lado. Medido en los clips: con señal a la vista
+    # el cambio de desviación entre frames es 4 veces mayor (p95 0.135 contra
+    # 0.035). Mientras la señal tape la franja se mantiene el rumbo que traíamos.
+    congelar_con_senal: bool = True
+    margen_senal_franja: float = 0.05  # fracción del alto alrededor de la señal
 
     # --- Control ----------------------------------------------------------
     zona_muerta: float = 0.12          # |desviación| menor que esto = seguir recto
@@ -133,7 +140,8 @@ class Config:
 
         for nombre in ("segundos_pare", "espera_entre_senales", "ganancia_giro", "pausa_reconexion_s"):
             _validar_numero(nombre, getattr(self, nombre), 0)
-        for nombre in ("zona_muerta", "peso_linea_lejana", "circularidad_minima"):
+        for nombre in ("zona_muerta", "peso_linea_lejana", "circularidad_minima",
+                       "margen_senal_franja"):
             _validar_numero(nombre, getattr(self, nombre), 0, 1)
         _validar_numero("umbral_curvatura", self.umbral_curvatura, 0, 2)
         _validar_numero("fps_respaldo", self.fps_respaldo, 0)
@@ -143,7 +151,7 @@ class Config:
         if self.precision_poligono == 0:
             raise ValueError("precision_poligono debe ser mayor que cero")
 
-        for nombre in ("siga_reanuda", "exigir_octagono"):
+        for nombre in ("siga_reanuda", "exigir_octagono", "congelar_con_senal"):
             if not isinstance(getattr(self, nombre), bool):
                 raise ValueError(f"{nombre} debe ser true o false")
 

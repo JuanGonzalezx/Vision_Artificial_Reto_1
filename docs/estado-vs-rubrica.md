@@ -4,10 +4,10 @@ Estado honesto criterio por criterio. Lo que dice "sin probar" es lo que se deci
 
 | Criterio | Cómo vamos | Qué falta |
 |---|---|---|
-| Corrección de trayectoria | Algoritmo listo y medido: 91.1% de línea detectada en 2341 frames, 4 saltos, zigzag casi nulo | **Sin probar en el robot.** Es lo de mañana |
+| Corrección de trayectoria | Algoritmo listo y medido: 91.1% de línea detectada en 2341 frames, 0 saltos, zigzag 0 en ruta ideal | **Sin probar en el robot.** Es lo de mañana |
 | Intervenciones humanas | Existe el estado `BUSCANDO`: al perder la línea gira hacia el último lado visto, 5/5 aciertos en los clips del profesor | Medirlo en la pista real |
 | Reconocimiento de PARE | Detecta la señal roja en los 4 clips de ruta ideal, 0 falsos positivos en los otros 5 | Ajustar a qué área (o sea, a qué distancia) frena |
-| Reconocimiento de SIGA | Igual con la verde | Lo mismo |
+| Reconocimiento de SIGA | Igual con la verde, y ya no da volantazo al pasarla: mientras la señal tapa la franja se mantiene el rumbo (ver `docs/algoritmo.md`, etapa 12) | Lo mismo |
 | Uso de técnicas | Cada módulo cita en su docstring de qué clase sale la técnica; la tabla completa está en `docs/reto/tecnicas-permitidas.md` | Que los tres puedan explicarla sin leer |
 | Cumplimiento de restricciones | Solo color, máscaras, morfología, contornos y K-Means. Ni deep learning, ni preentrenados, ni Haar. Arduino intacto | Poder responder por qué scikit-learn sí (es el K-Means de la clase 4) |
 | Tiempo de recorrido | El actuador manda pulsos a 10 Hz y reparte el giro | **Sin probar.** Depende del ritmo y de la ganancia |
@@ -34,6 +34,27 @@ uv run python tools/probar_robot.py --simulado     # teclea: wwad, luego r, lueg
 ```
 
 Llevar: el celular con IP Camera Lite, el cable, la pista de papel que ya hizo Santiago, y el video `docs/media/demo_sustentacion.mp4` descargado por si no hay internet.
+
+## Qué computador le habla al robot
+
+**El de Daniel (Windows).** El `socket` de Python en Windows sí trae Bluetooth RFCOMM, así que funciona exactamente como el ejemplo del profesor, con la MAC:
+
+```bash
+uv run python tools/probar_robot.py --mac <MAC_DEL_ROBOT>
+uv run main.py --fuente <url_celular> --robot-mac <MAC_DEL_ROBOT> --grande
+```
+
+Antes, emparejar el mBot en la configuración de Bluetooth de Windows.
+
+**En el Mac de Juan David** el ejemplo del profesor no corre (macOS no trae `AF_BLUETOOTH`): hay que emparejar el robot y usar el puerto serie con `--robot-puerto /dev/tty.<nombre>`. Queda como plan B.
+
+## Calibrar el montaje nuevo (5 minutos)
+
+1. Con el celular **ya montado en el robot**: `uv run main.py --fuente <url> --mascaras --grande`. Mirar dónde queda la pista en la imagen y dónde empieza el robot.
+2. Si la imagen sale de lado: `--rotar 90` (o 270).
+3. Poner la franja de la línea **justo encima de lo que se ve del robot**: `--roi-linea 0.40 0.58` es para el encuadre de los videos del profesor; `--roi-linea 0.78 1.00` es para un celular que no ve el robot. Mover los dos números hasta que la franja amarilla del HUD caiga sobre la pista cercana.
+4. Si la máscara de la línea sale con huecos o con sombras: foto de la pista → `uv run python tools/calibrar_kmeans.py <foto> -o config_pista.json` → correr con `--config config_pista.json` y volver a mirar las máscaras.
+5. Anotar en la bitácora los valores que quedaron.
 
 ## Orden de las pruebas con el robot (el turno es corto)
 

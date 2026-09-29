@@ -184,7 +184,8 @@ def ejecutar(argumentos, config: Config) -> int:
 
             if argumentos.grabar or not argumentos.sin_ventana:
                 vista = dibujar(depuracion["frame"], depuracion["linea"], depuracion["senal"],
-                                decision, estado, config, fps_proceso, depuracion["curvatura"])
+                                decision, estado, config, fps_proceso, depuracion["curvatura"],
+                                depuracion.get("linea_congelada", False))
                 if argumentos.grande:
                     vista = accion_en_grande(vista, decision)
                 if argumentos.grabar:

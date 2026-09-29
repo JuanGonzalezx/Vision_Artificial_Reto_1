@@ -89,3 +89,6 @@ class Estado:
     detenido_hasta: float = 0.0
     ultima_senal_obedecida: float = -999.0
     ultimas_desviaciones: list = field(default_factory=list)
+    # Última desviación medida sin una señal tapando la franja de la línea;
+    # es el rumbo que se mantiene mientras la señal pasa (ver pipeline).
+    ultima_desviacion_limpia: float | None = None
