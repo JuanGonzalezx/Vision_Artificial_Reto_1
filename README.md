@@ -6,6 +6,7 @@ El programa recibe imágenes de una webcam, un celular por IP o un archivo, dete
 
 **Estado al 29 de septiembre:** percepción, control, captura, HUD y grabación integrados, y el pipeline ya corre en vivo con el celular. Las salidas disponibles son consola, CSV y el robot (`reto/actuador_robot.py`, por Bluetooth o puerto serie). Falta la validación física con el mBot; no se modifica Arduino ni la electrónica.
 
+- [**El algoritmo etapa por etapa, y por qué así**](docs/algoritmo.md)
 - [Arquitectura y diagramas del sistema, algoritmo y estados](docs/arquitectura.md)
 - [Cómo probar y comparar resultados](docs/flujo-de-pruebas.md)
 - [Especificación](docs/reto/especificacion.md), [rúbrica](docs/reto/rubrica.md) y [técnicas permitidas](docs/reto/tecnicas-permitidas.md)

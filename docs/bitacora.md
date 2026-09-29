@@ -139,3 +139,20 @@ Santiago ya tiene el pipeline corriendo **en vivo con el celular** (IP Camera Li
 Verificado después de todo esto: 39 pruebas OK, y la evaluación sigue en 91.1%, 4 saltos y 5/5 recuperaciones.
 
 Estado contra la rúbrica: `docs/estado-vs-rubrica.md`.
+
+### 2026-09-29 (madrugada) — La barra de las señales y la sustentación del algoritmo
+
+**Revisión completa sobre `main` (`ae913ca`).** 39 pruebas OK y la misma evaluación: 91.1%, 4 saltos, 5/5 recuperaciones. Procesamos los 27 frames de calibración (`docs/media/frames_procesados.jpg`) y la foto de prueba de Santiago (`linea2.jpeg`) con los dos perfiles: con los dos la ve centrada (−0.10, dentro de la zona muerta).
+
+**Hallazgo al graficar la desviación en el tiempo.** Todos los picos bruscos caían dentro de las ventanas con señal a la vista. La causa: las señales van sobre una barra negra que cruza la pista, y cuando llega a la franja de la línea entra en la máscara y tira el centroide. Justo al pasar un SIGA, el robot habría dado un volantazo.
+
+| | p95 del cambio de desviación con señal a la vista | máximo |
+|---|---|---|
+| Antes | 0.135 | 0.51 |
+| Mantener el rumbo mientras la señal tapa la franja | **0.017** | **0.06** |
+
+Saltos sospechosos en toda la evaluación: de 4 a **0**. Zigzag en ruta ideal: 0. Detección y recuperaciones sin cambio (91.1%, 5/5). Probamos antes quitar las filas "casi todas negras" de la máscara y no sirvió: la barra no siempre cruza todo el ancho y una curva cerrada también llena filas.
+
+**Documentos nuevos:** `docs/algoritmo.md` (cada etapa con su porqué y su evidencia), diagramas en `docs/media/diagrama_algoritmo.png` y `diagrama_estados.png` (fuentes en `docs/diagramas/`), `docs/media/timeline_clips.png` y el video de demostración actualizado.
+
+**Pendiente de revisar con el equipo:** la rama de Daniel (`feat/linea-y-me...`) no está en el remoto; hay que subirla para compararla con `main` usando `tools/evaluar.py`.

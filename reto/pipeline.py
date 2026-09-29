@@ -85,10 +85,26 @@ def procesar_frame(frame, estado: Estado, config: Config,
     roi_lejana, _ = recortar(preparado, config.roi_linea_lejana)
     linea_lejana: ResultadoLinea = modulo_linea.detectar(roi_lejana, config)
 
-    roi_senal, _ = recortar(preparado, config.roi_senal)
+    roi_senal, desplazamiento_senal = recortar(preparado, config.roi_senal)
     senal: ResultadoSenal = modulo_senales.detectar(roi_senal, config)
 
     linea = combinar_franjas(linea, linea_lejana, config, desplazamiento)
+
+    # La señal va sobre una barra negra que cruza la pista: cuando llega a la
+    # franja de la línea, la barra entra en la máscara y mueve el centroide.
+    # Mientras la tape, se mantiene el rumbo que se traía (ver config).
+    congelada = False
+    tapa_la_linea = config.congelar_con_senal and senal_sobre_franja(
+        senal, desplazamiento_senal, preparado.shape[0], config
+    )
+
+    if tapa_la_linea and estado.ultima_desviacion_limpia is not None:
+        linea = ResultadoLinea(True, linea.centro_x, estado.ultima_desviacion_limpia,
+                               linea.area, linea.mascara)
+        congelada = True
+    elif linea.detectada:
+        estado.ultima_desviacion_limpia = linea.desviacion
+
     linea = suavizar(linea, estado, config)
     decision = decidir(estado, linea, senal, config, ahora)
 
@@ -103,11 +119,31 @@ def procesar_frame(frame, estado: Estado, config: Config,
         "linea": linea,
         "linea_lejana": linea_lejana,
         "curvatura": curvatura,
+        "linea_congelada": congelada,
         "senal": senal,
         "mascaras": {"linea": linea.mascara, "senal": senal.mascara},
     }
 
     return decision, depuracion
+
+
+def senal_sobre_franja(senal: ResultadoSenal, desplazamiento_senal: int, alto: int,
+                       config: Config) -> bool:
+    """Indica si la señal (y la barra en la que va montada) tapa la franja de la línea.
+
+    Se compara el alto de la caja de la señal (boundingRect, clase 3) con las
+    filas de la franja cercana, con un margen porque la barra sobresale un poco.
+    """
+    if senal.tipo is None or senal.contorno is None:
+        return False
+
+    _, y, _, alto_senal = cv2.boundingRect(senal.contorno)
+    arriba = y + desplazamiento_senal
+    abajo = arriba + alto_senal
+    margen = int(alto * config.margen_senal_franja)
+    y1, y2 = franja_a_pixeles(alto, config.roi_linea_cercana)
+
+    return abajo + margen >= y1 and arriba - margen <= y2
 
 
 def suavizar(linea: ResultadoLinea, estado: Estado, config: Config) -> ResultadoLinea:
