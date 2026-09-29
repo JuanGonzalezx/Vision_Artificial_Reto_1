@@ -23,6 +23,9 @@ Ejemplos de uso:
     # Con una calibracion aparte, sin tocar el codigo
     uv run main.py --config config_pista.json
 
+    # Flujo alterno: el simulador (simulacion/index.html) hace de camara y de robot
+    uv run main.py --index
+
     # Tambien se puede configurar todo con variables de entorno
     export CAMARA_URL=http://100.83.23.67:8081/
     export CAMARA_USUARIO=admin
@@ -38,10 +41,12 @@ import time
 
 import cv2
 
+from reto.actuador import ActuadorNulo
 from reto.camara import abrir_camara
 from reto.config import Config
 from reto.overlay import dibujar, mosaico
 from reto.pipeline import procesar_frame
+from reto.simulador import PuenteSimulador
 from reto.tipos import Estado
 
 VENTANA = "Reto 1 - cerebro del robot"
@@ -49,6 +54,9 @@ VENTANA_MASCARAS = "Mascaras"
 
 # Fuente por defecto para desarrollar sin celular; las pruebas reales usan --fuente <url>.
 FUENTE_DESARROLLO = "vid/video1.mp4"
+
+# Calibracion del flujo --index (camara del simulador).
+CONFIG_SIMULADOR = "configs/simulador.json"
 
 # Cuantos frames seguidos pueden fallar antes de dar la camara por perdida.
 REINTENTOS = 5
@@ -97,21 +105,41 @@ def parsear_argumentos() -> argparse.Namespace:
         action="store_true",
         help="Muestra una ventana aparte con el frame preparado y las mascaras.",
     )
+    parser.add_argument(
+        "--index",
+        action="store_true",
+        help=(
+            "Flujo alterno: abre el simulador (simulacion/index.html) en el navegador, "
+            "lee su pantalla como camara y le envia las decisiones como si fuera el robot."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     argumentos = parsear_argumentos()
-    config = Config.desde_json(argumentos.config) if argumentos.config else Config()
+    # El simulador tiene otra geometria de camara: usa su propia calibracion si no se pasa --config.
+    ruta_config = argumentos.config or (CONFIG_SIMULADOR if argumentos.index else None)
+    config = Config.desde_json(ruta_config) if ruta_config else Config()
     estado = Estado()
 
-    print(f"Abriendo fuente de video: {argumentos.fuente}")
-    if argumentos.config:
-        print(f"Calibracion cargada de: {argumentos.config}")
+    if ruta_config:
+        print(f"Calibracion cargada de: {ruta_config}")
     print("Presiona 'q' en la ventana para salir.")
 
-    captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena)
-    es_video = es_archivo_de_video(argumentos.fuente)
+    # La camara y el actuador son lo unico que cambia entre flujos:
+    #   normal: camara/video + ActuadorNulo (la decision solo se ve en el HUD)
+    #   --index: el simulador es a la vez camara y actuador
+    #   robot real: camara del celular + el actuador del robot (T5.4)
+    if argumentos.index:
+        captura = actuador = PuenteSimulador()
+        print(f"Simulador en {captura.url} (si no se abre solo, pegalo en el navegador)")
+    else:
+        print(f"Abriendo fuente de video: {argumentos.fuente}")
+        captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena)
+        actuador = ActuadorNulo()
+
+    es_video = not argumentos.index and es_archivo_de_video(argumentos.fuente)
     # Un video se reproduce a su velocidad real, para que los tiempos del control
     # (segundos de PARE, esperas) se comporten como en la pista.
     espera_ms = int(1000 / (captura.get(cv2.CAP_PROP_FPS) or 30)) if es_video else 1
@@ -149,6 +177,7 @@ def main() -> None:
 
             # Un frame entra al pipeline y sale una decision, con sus datos intermedios.
             decision, depuracion = procesar_frame(frame, estado, config)
+            actuador.enviar(decision)
 
             vista = dibujar(
                 frame,
@@ -172,7 +201,9 @@ def main() -> None:
                 break
     finally:
         # Liberamos la camara y cerramos las ventanas al terminar.
-        captura.release()
+        actuador.cerrar()
+        if not argumentos.index:
+            captura.release()
         cv2.destroyAllWindows()
 
 

@@ -400,6 +400,42 @@
   });
   document.getElementById('resetBtn').addEventListener('click', resetRun);
 
+  // ---- puente con el cerebro en Python (uv run main.py --index) ----
+  // Con ?puente=1 el canvas se envía como imagen a /frame y la respuesta trae la orden
+  // {accion, giro} (mismo formato que recibiría el robot real). Sin el parámetro, se juega a mano.
+  const puente = new URLSearchParams(location.search).has('puente');
+  const CRUCERO = 100;   // u/s con la línea recta; MAX_SPEED es 190
+  const orden = {accion:'PARAR', giro:0};
+  let acumuladoGiro = 0, enviando = false;
+
+  // Combina las teclas con la orden de Python. El simulador solo gira "todo o nada":
+  // un giro de 0.5 se logra girando la mitad de los cuadros.
+  function controles(){
+    const c = {up:input.up, down:input.down, left:input.left, right:input.right};
+    if(!puente) return c;
+    // Velocidad de crucero (lo que haría el firmware del robot): más lento cuanto más gira.
+    const crucero = CRUCERO * (1 - 0.5*Math.min(1, Math.abs(orden.giro)));
+    c.up = c.up || (orden.accion !== 'PARAR' && car.speed < crucero);
+    acumuladoGiro += Math.min(1, Math.abs(orden.giro));
+    if(acumuladoGiro >= 1){
+      acumuladoGiro -= 1;
+      if(orden.giro < 0) c.left = true; else c.right = true;
+    }
+    return c;
+  }
+
+  function enviarFrame(){
+    if(!puente || enviando) return;
+    enviando = true;
+    canvas.toBlob(blob=>{
+      const telemetria = JSON.stringify({descarrilamientos:derailCount, incumplimientos:violCount,
+                                         vueltas:lapCount, velocidad:Math.round(car.speed), pare:redState, siga:greenState});
+      fetch('/frame', {method:'POST', body:blob, headers:{'X-Telemetria':telemetria}})
+        .then(r=>r.json()).then(o=>{ orden.accion=o.accion; orden.giro=o.giro; })
+        .catch(()=>{}).finally(()=>{ enviando=false; });
+    }, 'image/jpeg', 0.9);
+  }
+
   // ---- run state ----
   let lastIdx = 0;
   let lapCount = 0, lapStart = performance.now(), bestLap = null;
@@ -452,8 +488,9 @@
       return;
     }
 
-    if(input.up) car.speed = Math.min(MAX_SPEED, car.speed + ACCEL*dt);
-    else if(input.down) car.speed = Math.max(-MAX_REV, car.speed - ACCEL*dt);
+    const ctl = controles();
+    if(ctl.up) car.speed = Math.min(MAX_SPEED, car.speed + ACCEL*dt);
+    else if(ctl.down) car.speed = Math.max(-MAX_REV, car.speed - ACCEL*dt);
     else {
       if(car.speed>0) car.speed = Math.max(0, car.speed - FRICTION*dt);
       else if(car.speed<0) car.speed = Math.min(0, car.speed + FRICTION*dt);
@@ -461,8 +498,8 @@
 
     const turnFactor = Math.max(Math.abs(car.speed)/MAX_SPEED, 0.18);
     const dir = car.speed < 0 ? -1 : 1;
-    if(input.left) car.angle -= TURN_RATE*dt*turnFactor*dir;
-    if(input.right) car.angle += TURN_RATE*dt*turnFactor*dir;
+    if(ctl.left) car.angle -= TURN_RATE*dt*turnFactor*dir;
+    if(ctl.right) car.angle += TURN_RATE*dt*turnFactor*dir;
 
     car.x += Math.cos(car.angle)*car.speed*dt;
     car.y += Math.sin(car.angle)*car.speed*dt;
@@ -710,6 +747,7 @@
     drawCar();
     ctx.drawImage(vignette,0,0);
     drawHUD();
+    enviarFrame();
 
     requestAnimationFrame(frame);
   }

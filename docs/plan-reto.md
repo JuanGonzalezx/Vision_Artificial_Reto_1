@@ -263,6 +263,7 @@ Las fases F2 y F3 van **en paralelo** (archivos distintos, contrato común en `t
 
 - [ ] **T5.1** · `main.py --registro corrida.csv` (RF-21), con las mismas columnas que `evaluar_video.py` · T1.1.
 - [ ] **T5.2** · `main.py --grabar salida.mp4` (RF-22) · P-06.
+- [x] **T5.6** · Flujo alterno `uv run main.py --index`: el simulador (`simulacion/index.html?puente=1`) manda su canvas como JPEG a un servidor local (`reto/simulador.py`, solo librería estándar) y recibe la orden `{accion, giro}` de la respuesta. `reto/actuador.py` define la interfaz `Actuador`; para el robot real solo se agrega otra clase y se cambia en `main.py` · Daniel · T5.4 · RF-23. *Hecho 2026-09-28 (2 de 3 piezas: puente y calibración `configs/simulador.json`); falta afinar el seguimiento: hoy la línea se detecta y el robot gira, pero todavía se descarrila. Ojo: con varias pestañas del simulador abiertas se mezclan los frames.*
 - [ ] **T5.3** · Simulador: cambiar `drawPentagon` por un octágono (`simulacion/index.html:580`) y grabar un video del simulador para `datos/videos/` · — · Prueba extra de RF-10. *Opcional.*
 - [ ] **T5.4** · `reto/actuador.py`: traducir `Decision` al protocolo del robot (RF-23) · P-02. *Solo si hay hardware.*
 - [ ] **T5.5** · Medir FPS con la cámara real y todo encendido. Si baja de 15, reducir `ancho_proceso` (480 → 360 → 320) y volver a validar F2 y F3 · F2, F3 · RNF-01.
@@ -390,6 +391,7 @@ Al 2026-09-28.
 
 | Fecha | Versión | Cambio |
 |---|---|---|
+| 2026-09-28 | 1.4 | T5.6: flujo `--index`, `reto/actuador.py`, `reto/simulador.py`, `configs/simulador.json` |
 | 2026-09-28 | 1.3 | Estado por requisito (RF-04..08, 19, 21), avance de Daniel, cambios compartidos y bloqueos en la sección 14 |
 | 2026-09-28 | 1.2 | F4: `tools/calibrar.py` (T4.1, T4.2) y decisión 0003 (T4.4). T4.3 queda pendiente hasta tener F3 |
 | 2026-09-28 | 1.1 | RF-05: criterio de saltos relajado a 0.6 dentro de la ventana de la cinta transversal (medido en video1). T0.6, T1.1, T1.2 y F2 hechas |
