@@ -59,6 +59,10 @@ uv run python tools/sync_apuntes.py      # traer los apuntes de clase al repo
 uv run python tools/notebooks.py limpiar <in.ipynb> <out.ipynb>
 ```
 
+## El robot
+
+El firmware del mBot es del profesor y **no se toca**: solo le mandamos caracteres (`w`, `s`, `a`, `d`, `x`) por Bluetooth. Son pulsos, no estados, y por eso el actuador manda comandos a ritmo fijo. Está todo en @docs/robot.md y en @reto/actuador_robot.py.
+
 ## Qué no hacer
 
 - No agregar dependencias sin discutirlo: cada librería nueva hay que justificarla frente a las restricciones del reto.
@@ -66,6 +70,7 @@ uv run python tools/notebooks.py limpiar <in.ipynb> <out.ipynb>
 - No meter los notebooks pesados del profesor al repo: van limpios (`tools/notebooks.py`).
 - No dejar umbrales dentro de la lógica: van a `config.py`.
 - No cambiar los contratos de `tipos.py` sin avisar.
+- No modificar nada de Arduino ni de la electrónica: el profesor lo prohibió expresamente.
 
 ## Antes de dar algo por bueno
 

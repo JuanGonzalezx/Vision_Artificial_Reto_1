@@ -1,44 +1,49 @@
-# Guion de la sustentación (primera, 2026-09-29)
+# Guion de la sustentación (2026-09-29)
 
-5 minutos, hablan los tres. La idea no es decir que está terminado, sino mostrar **qué funciona, con qué números y qué falta**. Frente a una pregunta que no sepamos: "no lo hemos medido todavía" y seguir.
+Cinco minutos para mostrar qué está implementado, cómo se prueba y qué falta validar con el robot. Los números de los clips describen decisiones sobre videos; no equivalen a una prueba física.
 
-## Qué mostrar, en orden
+## Preparación
 
-**1. El problema y la restricción (Santiago, 30 s)**
-Cerebro de un robot seguidor de línea que además obedece PARE y SIGA, usando solo lo visto en clase: color, máscaras, morfología, contornos y K-Means. Nada de deep learning ni modelos preentrenados.
+Desde la raíz del repo:
 
-**2. El pipeline, con la imagen de etapas (Daniel, 1 min)**
-Abrir `docs/media/etapas.png`: frame → canal V → máscara de la línea en su franja → máscara de las señales → decisión en el HUD. Una frase por etapa y de qué clase sale cada una.
+```bash
+uv sync --locked
+uv run python tools/probar_control.py
+uv run python -m unittest discover -s tests -v
+uv run python tools/evaluar.py
+uv run main.py --fuente datos/clips/rutaIdeal/video4.mp4 --mascaras --consola
+```
 
-**3. El video de demostración (Juan David, 1 min)**
-`docs/media/demo_sustentacion.mp4`, tres segmentos: sigue la línea con la señal SIGA a la vista, se detiene con el PARE, y pierde la línea y entra a BUSCANDO. Todo corrido sobre los videos de ensayo del profesor.
+Tener abiertos [arquitectura y diagramas](arquitectura.md), `docs/media/etapas.png` y la [bitácora](bitacora.md). `docs/media/demo_sustentacion.mp4` es material ilustrativo de la versión anterior; para mostrar el comportamiento actual se ejecuta el comando de arriba o se genera una grabación nueva con `--grabar`.
 
-**4. Los números (Juan David, 1 min)**
+## Qué mostrar
 
-| Qué | Resultado |
+**1. Problema y restricciones — Santiago, 30 s.** Seguimos una línea y respondemos a PARE/SIGA con técnicas vistas en clase. La electrónica y Arduino no se modifican. Por ahora la decisión se ve en HUD, consola y CSV.
+
+**2. Algoritmo — Daniel, 1 min.** Mostrar el diagrama de procesamiento: resize y Gauss; ROI; HSV; máscaras; morfología; contorno y centroide para la línea; color, área y geometría para señales; persistencia y máquina de estados. K-Means solo propone rangos durante la calibración.
+
+**3. Demostración reproducible — Juan David, 1 min.** Ejecutar un clip con PARE, otro con SIGA y uno de descarrilamiento. Señalar la razón de cada decisión y las máscaras. El archivo termina sin repetirse. Si se usa cámara, aclarar si ya se midieron sus FPS y latencia con el montaje definitivo.
+
+**4. Resultados — Juan David, 1 min.** Mostrar la evaluación actual junto a la referencia anterior a la integración:
+
+| Medida en clips | Referencia previa |
 |---|---|
-| Línea detectada | 100% en los 4 clips de ruta ideal, 91.1% sobre los 2341 frames |
-| Recuperación | 5 de 5 clips de descarrilamiento: busca hacia el lado correcto |
-| Señales | Las dos detectadas en los 4 clips de ruta ideal |
-| Falsos positivos | 0 en los 5 clips sin señales |
-| Saltos de detección | 4 en total (eran 16 antes del suavizado) |
+| Frames con detección de línea | 91.1% de 2341; 100% en ruta ideal |
+| Saltos sospechosos de desviación | 4 |
+| Búsqueda hacia lado esperado | 5 de 5 clips de descarrilamiento |
+| Detecciones PARE/SIGA en clips sin señales | 0 en los cinco clips negativos |
 
-Y la frase importante: **esos números salen de un comando** (`tools/evaluar.py`), no de mirar el video y opinar.
+La dirección de búsqueda está comprobada sobre un video que no responde a las órdenes. La recuperación física, el tiempo de recorrido y las intervenciones se medirán con el robot. Sin etiquetado manual, el porcentaje de detección no es una medida de precisión.
 
-**5. Lo que falta y cómo lo vamos a probar (Santiago, 1 min)**
-Cámara del celular por IP, montaje definitivo, pista propia con cinta, y el simulador para probar el control en lazo cerrado. Fechas.
+**5. Límites y siguiente prueba — Santiago, 1 min.** ROI y colores calibrados con los clips del profesor; el montaje propio puede cambiarlos. La demo JavaScript todavía no se conecta con Python. Falta integrar la API del robot y validar trayectoria, señales y pérdida de comunicación en la práctica.
 
-**6. Una limitación dicha por nosotros antes de que la pregunten (30 s)**
-Todo está calibrado con los videos del profesor. Si cambia la luz, los rangos cambian; por eso tenemos la calibración automática con K-Means, que se rehace en dos minutos con una foto de la pista.
+**6. Aclaraciones para el profesor — los tres, 30 s.** Confirmar duración del PARE, si SIGA puede interrumpirlo y si las señales de la práctica son octágonos de frente. El valor actual de 3 segundos es provisional.
 
-## Las tres cosas que más nos pueden preguntar
+## Preguntas probables
 
-1. **"¿Por qué esos umbrales?"** → Porque los barrimos. `tools/barrido.py vmax 90 100 110 120 129`: con 110 hay 16 saltos y 5/5 recuperaciones; con 129 sube la detección pero se va a las sombras. La tabla está en la bitácora.
-2. **"Eso no es un octágono."** → Cierto, y lo medimos: en sus videos las señales son cartulinas inclinadas, dan 4-5 vértices y circularidad 0.58-0.72. Por eso el color y el área deciden y la forma suma confianza, con un parámetro para volverlo estricto.
-3. **"¿Cómo sé que no está siguiendo una sombra?"** → Por la métrica de saltos y porque revisamos las máscaras frame por frame. Y mostrar el HUD con la máscara encima.
+1. **¿Por qué esos umbrales?** Se compararon configuraciones y máscaras. V=129 elevaba la cantidad de detecciones, pero también los saltos y empeoraba la dirección de búsqueda. K-Means propone; la evaluación y la inspección deciden.
+2. **¿Por qué aceptan una cartulina que no es octágono?** Los clips de ensayo dan 4–5 vértices; el modo permisivo permite probar esas secuencias. `exigir_octagono=True` activa los filtros geométricos, que todavía pueden confundir figuras similares. Debe validarse con las señales reales.
+3. **¿Las dos franjas anticipan las curvas?** Se calcula la lejana para mostrar un indicador de curvatura, pero su peso en la decisión es cero porque mezclarla empeoró estas pruebas.
+4. **¿Ya mueve el robot?** No. Están listos percepción, control y salida de decisiones; falta el adaptador autorizado y la prueba física.
 
-El resto de preguntas previstas están en [preguntas-del-profe.md](preguntas-del-profe.md). Hay que leerlo los tres antes de entrar.
-
-## Repartición al hablar
-
-Cada uno explica **una parte que no programó**. Es la mejor forma de comprobar que los tres entendemos el pipeline completo, y es un criterio de la rúbrica ("todos los integrantes conocen y explican la solución").
+Cada integrante debe poder explicar las partes de los otros. Más respuestas en [preguntas-del-profe.md](preguntas-del-profe.md).

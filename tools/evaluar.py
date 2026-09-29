@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import sys
 import time
 from pathlib import Path
@@ -42,7 +43,13 @@ SALTO_SOSPECHOSO = 0.35
 
 def evaluar_clip(ruta: Path, config: Config) -> dict:
     captura = cv2.VideoCapture(str(ruta))
-    fps_video = captura.get(cv2.CAP_PROP_FPS) or 30.0
+    if not captura.isOpened():
+        captura.release()
+        raise ValueError(f"No se pudo abrir el clip: {ruta}")
+    fps_video = captura.get(cv2.CAP_PROP_FPS)
+    if not math.isfinite(fps_video) or fps_video <= 0:
+        captura.release()
+        raise ValueError(f"El clip no tiene FPS válidos para evaluarlo: {ruta}")
     estado = Estado()
 
     frames = con_linea = cambios_de_giro = saltos = 0
@@ -53,56 +60,67 @@ def evaluar_clip(ruta: Path, config: Config) -> dict:
     accion_anterior = None
     inicio = time.monotonic()
 
-    while True:
-        ok, frame = captura.read()
+    try:
+        while True:
+            ok, frame = captura.read()
 
-        if not ok:
-            break
+            if not ok:
+                break
 
-        # Reloj del video: hace la evaluación determinista.
-        decision, depuracion = procesar_frame(frame, estado, config, ahora=frames / fps_video)
-        linea = depuracion["linea"]
-        senal = depuracion["senal"]
+            # Reloj del video: hace la evaluación determinista.
+            decision, depuracion = procesar_frame(frame, estado, config, ahora=frames / fps_video)
+            linea = depuracion["linea"]
+            senal = depuracion["senal"]
 
-        frames += 1
+            frames += 1
 
-        if linea.detectada:
-            con_linea += 1
-            suma_desviacion += abs(linea.desviacion)
+            if linea.detectada:
+                con_linea += 1
+                suma_desviacion += abs(linea.desviacion)
 
-            if desviacion_anterior is not None and \
-                    abs(linea.desviacion - desviacion_anterior) > SALTO_SOSPECHOSO:
-                saltos += 1
+                if desviacion_anterior is not None and \
+                        abs(linea.desviacion - desviacion_anterior) > SALTO_SOSPECHOSO:
+                    saltos += 1
 
-            desviacion_anterior = linea.desviacion
-        else:
-            desviacion_anterior = None
-
-        if senal.tipo == "PARE":
-            pare += 1
-        elif senal.tipo == "SIGA":
-            siga += 1
-
-        area_max = max(area_max, senal.area)
-
-        if decision.accion is Accion.BUSCAR:
-            if decision.giro < 0:
-                busca_izq += 1
+                desviacion_anterior = linea.desviacion
             else:
-                busca_der += 1
+                desviacion_anterior = None
 
-        giros = (Accion.IZQUIERDA, Accion.DERECHA)
+            if senal.tipo == "PARE":
+                pare += 1
+            elif senal.tipo == "SIGA":
+                siga += 1
 
-        if accion_anterior in giros and decision.accion in giros and \
-                decision.accion is not accion_anterior:
-            cambios_de_giro += 1
+            area_max = max(area_max, senal.area)
 
-        accion_anterior = decision.accion
+            if decision.accion is Accion.BUSCAR:
+                if decision.giro < 0:
+                    busca_izq += 1
+                else:
+                    busca_der += 1
 
-    captura.release()
+            giros = (Accion.IZQUIERDA, Accion.DERECHA)
+
+            if accion_anterior in giros and decision.accion in giros and \
+                    decision.accion is not accion_anterior:
+                cambios_de_giro += 1
+
+            accion_anterior = decision.accion
+
+    finally:
+        captura.release()
+
+    if not frames:
+        raise ValueError(f"El clip no contiene frames legibles: {ruta}")
     duracion = frames / fps_video if frames else 0.0
 
     return {
+        # Contadores sin redondear: los resúmenes nunca se reconstruyen del CSV.
+        "_con_linea": con_linea,
+        "_saltos": saltos,
+        "_cambios_de_giro": cambios_de_giro,
+        "_suma_desviacion": suma_desviacion,
+        "_duracion": duracion,
         "clip": str(ruta),
         "frames": frames,
         "duracion_s": round(duracion, 1),
@@ -117,6 +135,29 @@ def evaluar_clip(ruta: Path, config: Config) -> dict:
         "busca_der": busca_der,
         "fps_proceso": round(frames / (time.monotonic() - inicio), 1) if frames else 0.0,
     }
+
+
+def resumir(filas: list[dict]) -> dict:
+    """Agrega contadores exactos; la desviación solo promedia frames con línea."""
+    total = sum(f["frames"] for f in filas)
+    con_linea = sum(f["_con_linea"] for f in filas)
+    duracion = sum(f["_duracion"] for f in filas)
+    if total <= 0 or duracion <= 0:
+        raise ValueError("No hay frames evaluados para calcular un resumen.")
+    return {
+        "frames": total,
+        "linea_%": 100 * con_linea / total,
+        "saltos": sum(f["_saltos"] for f in filas),
+        "zigzag_por_s": sum(f["_cambios_de_giro"] for f in filas) / duracion,
+        "desviacion_media": (sum(f["_suma_desviacion"] for f in filas) / con_linea
+                             if con_linea else 0.0),
+    }
+
+
+def buscar_clips(carpeta: str | Path) -> list[Path]:
+    """Busca MP4 recursivamente, también si la extensión está en mayúsculas."""
+    return sorted(p for p in Path(carpeta).rglob("*")
+                  if p.is_file() and p.suffix.lower() == ".mp4")
 
 
 def revisar_lado_de_busqueda(filas: list[dict]) -> list[str]:
@@ -158,24 +199,28 @@ def main() -> None:
     parser.add_argument("--salida", default="datos/grabaciones/evaluacion.csv")
     argumentos = parser.parse_args()
 
-    config = Config.desde_json(argumentos.config) if argumentos.config else Config()
-    clips = sorted(Path(argumentos.carpeta).rglob("*.mp4"))
+    try:
+        config = Config.desde_json(argumentos.config) if argumentos.config else Config()
+    except (OSError, ValueError) as error:
+        parser.exit(1, f"Error de configuración: {error}\n")
+    clips = buscar_clips(argumentos.carpeta)
 
     if not clips:
         sys.exit(f"No hay clips en {argumentos.carpeta}/. Corre antes tools/preparar_videos.py")
 
-    filas = [evaluar_clip(clip, config) for clip in clips]
+    try:
+        filas = [evaluar_clip(clip, config) for clip in clips]
+    except (ValueError, cv2.error) as error:
+        parser.exit(1, f"Evaluación incompleta: {error}\n")
     anchos = {c: max(len(c), *(len(str(f[c])) for f in filas)) for c in COLUMNAS}
 
     print("  ".join(c.ljust(anchos[c]) for c in COLUMNAS))
     for fila in filas:
         print("  ".join(str(fila[c]).ljust(anchos[c]) for c in COLUMNAS))
 
-    total = sum(f["frames"] for f in filas)
-    con_linea = sum(f["frames"] * f["linea_%"] / 100 for f in filas)
-    saltos = sum(f["saltos_por_s"] * f["duracion_s"] for f in filas)
-    print(f"\nLinea detectada en {100 * con_linea / total:.1f}% de {total} frames "
-          f"({len(filas)} clips), con {saltos:.0f} saltos sospechosos de deteccion")
+    resumen = resumir(filas)
+    print(f"\nLinea detectada en {resumen['linea_%']:.1f}% de {resumen['frames']} frames "
+          f"({len(filas)} clips), con {resumen['saltos']} saltos sospechosos de deteccion")
     print("Ojo: un % mas alto con mas saltos suele ser peor, no mejor: la mascara "
           "se esta yendo a una sombra.")
 
@@ -189,7 +234,7 @@ def main() -> None:
     salida.parent.mkdir(parents=True, exist_ok=True)
 
     with salida.open("w", newline="", encoding="utf8") as archivo:
-        escritor = csv.DictWriter(archivo, fieldnames=COLUMNAS)
+        escritor = csv.DictWriter(archivo, fieldnames=COLUMNAS, extrasaction="ignore")
         escritor.writeheader()
         escritor.writerows(filas)
 

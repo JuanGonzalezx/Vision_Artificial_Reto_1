@@ -49,12 +49,18 @@ def main() -> None:
     # Se pierde la línea: primero mantiene el rumbo...
     for _ in range(config.frames_para_buscar - 1):
         d = decidir(estado, ResultadoLinea(), SIN_SENAL, config, reloj)
-        assert d.accion is Accion.RECTO, d
+        assert d.accion is Accion.IZQUIERDA and d.giro == -0.4 * config.ganancia_giro, d
 
     # ...y luego entra a buscar, hacia el último lado conocido (izquierda).
     d = decidir(estado, ResultadoLinea(), SIN_SENAL, config, reloj)
     assert d.accion is Accion.BUSCAR and d.giro < 0, d
     assert estado.estado is EstadoRobot.BUSCANDO
+
+    # Al recuperar la línea se limpia el contador; perderla centrado no gira.
+    d = decidir(estado, linea(0.05), SIN_SENAL, config, reloj)
+    assert estado.frames_sin_linea == 0 and estado.estado is EstadoRobot.SIGUIENDO
+    d = decidir(estado, ResultadoLinea(), SIN_SENAL, config, reloj)
+    assert d.accion is Accion.RECTO and d.giro == 0.0, d
 
     # Un solo frame con PARE no detiene el robot: hace falta confirmarlo.
     estado = Estado()

@@ -58,7 +58,7 @@ def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decis
         forma = "octagono" if senal.es_octagono else f"{senal.vertices} lados"
         _texto(salida, f"{senal.tipo} ({forma}, area {senal.area:.0f})", 10, 71, color, 0.55)
 
-    if abs(curvatura) > 0.15:
+    if abs(curvatura) > config.umbral_curvatura:
         lado = "derecha" if curvatura > 0 else "izquierda"
         _texto(salida, f"curva a la {lado} ({curvatura:+.2f})", 10, 94, AMARILLO, 0.5)
 
@@ -76,21 +76,24 @@ def mosaico(frame, mascaras: dict[str, "np.ndarray"], ancho_celda: int = 320):
     vistas += [(nombre, m) for nombre, m in mascaras.items() if m is not None]
 
     celdas = []
+    alto_celda = max(1, round(frame.shape[0] * ancho_celda / frame.shape[1]))
 
     for nombre, imagen in vistas:
         if imagen.ndim == 2:
             imagen = cv2.cvtColor(imagen, cv2.COLOR_GRAY2BGR)
 
-        alto = int(imagen.shape[0] * ancho_celda / imagen.shape[1])
-        celda = cv2.resize(imagen, (ancho_celda, alto))
+        # Ajustar y rellenar conserva toda la imagen, incluso en ROI muy bajas.
+        escala = min(ancho_celda / imagen.shape[1], alto_celda / imagen.shape[0])
+        ancho = max(1, round(imagen.shape[1] * escala))
+        alto = max(1, round(imagen.shape[0] * escala))
+        celda = np.zeros((alto_celda, ancho_celda, 3), dtype=np.uint8)
+        x, y = (ancho_celda - ancho) // 2, (alto_celda - alto) // 2
+        celda[y:y + alto, x:x + ancho] = cv2.resize(imagen, (ancho, alto))
         _texto(celda, nombre, 8, 22, VERDE, 0.55)
         celdas.append(celda)
 
     if not celdas:
         return frame
-
-    alto_comun = min(c.shape[0] for c in celdas)
-    celdas = [c[:alto_comun] for c in celdas]
 
     filas = [np.hstack(celdas[i:i + 2]) for i in range(0, len(celdas), 2)]
     ancho_comun = max(f.shape[1] for f in filas)

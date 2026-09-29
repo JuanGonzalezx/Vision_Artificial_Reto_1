@@ -81,7 +81,7 @@ def main() -> None:
         sys.exit("Faltan los valores a probar, por ejemplo: barrido.py vmax 100 110 120")
 
     evaluar = cargar_evaluador()
-    clips = sorted(Path(argumentos.carpeta).rglob("*.mp4"))
+    clips = evaluar.buscar_clips(argumentos.carpeta)
 
     if not clips:
         sys.exit(f"No hay clips en {argumentos.carpeta}/")
@@ -93,20 +93,20 @@ def main() -> None:
           f"{'recuperacion':>13}")
 
     for valor in argumentos.valores:
-        config = Config.desde_json(argumentos.config) if argumentos.config else Config()
-        aplicar(config, valor)
-
-        filas = [evaluar.evaluar_clip(clip, config) for clip in clips]
-        total = sum(f["frames"] for f in filas)
-        con_linea = sum(f["frames"] * f["linea_%"] / 100 for f in filas)
-        saltos = sum(f["saltos_por_s"] * f["duracion_s"] for f in filas)
-        zigzag = sum(f["zigzag_por_s"] * f["duracion_s"] for f in filas)
-        desviacion = sum(f["desviacion_media"] * f["frames"] for f in filas) / total
+        try:
+            config = Config.desde_json(argumentos.config) if argumentos.config else Config()
+            aplicar(config, valor)
+            config.validar()
+            filas = [evaluar.evaluar_clip(clip, config) for clip in clips]
+        except (OSError, ValueError) as error:
+            parser.exit(1, f"No se pudo evaluar {argumentos.parametro}={valor}: {error}\n")
+        resumen = evaluar.resumir(filas)
         revision = evaluar.revisar_lado_de_busqueda(filas)
         bien = sum(1 for linea in revision if linea.strip().startswith("OK"))
 
-        print(f"{valor:>12} {100 * con_linea / total:>8.1f}% {saltos:>7.0f} {desviacion:>11.3f} "
-              f"{zigzag / sum(f['duracion_s'] for f in filas):>9.2f} {bien:>10}/{len(revision)}")
+        print(f"{valor:>12} {resumen['linea_%']:>8.1f}% {resumen['saltos']:>7} "
+              f"{resumen['desviacion_media']:>11.3f} {resumen['zigzag_por_s']:>9.2f} "
+              f"{bien:>10}/{len(revision)}")
 
     print("\nRegla: preferir el valor con mas linea_% y menos saltos, sin perder recuperaciones.")
 

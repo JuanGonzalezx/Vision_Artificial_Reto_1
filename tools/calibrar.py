@@ -9,7 +9,7 @@ de la clase 3).
     uv run python tools/calibrar.py datos/clips/rutaIdeal/video1.mp4 -c config_pista.json
 
 Teclas:
-    1 / 2 / 3   calibrar la linea / el rojo / el verde
+    1 / 2 / 3 / 4   linea / rojo alto / verde / rojo bajo
     espacio     pausar o seguir el video
     n / p       siguiente o anterior imagen (en carpeta) o salto de 10 frames
     g           guardar la calibracion en el JSON (-c, por defecto config_pista.json)
@@ -19,6 +19,7 @@ Teclas:
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import sys
 from pathlib import Path
 
@@ -28,9 +29,10 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from reto.config import Config  # noqa: E402
+from reto.pipeline import preparar  # noqa: E402
 
 VENTANA = "Calibrador"
-MODOS = {ord("1"): "linea", ord("2"): "rojo", ord("3"): "verde"}
+MODOS = {ord("1"): "linea", ord("2"): "rojo_alto", ord("3"): "verde", ord("4"): "rojo_bajo"}
 EXTENSIONES_IMG = {".jpg", ".jpeg", ".png"}
 
 
@@ -55,11 +57,20 @@ def crear_trackbars(config: Config) -> None:
 
 
 def leer_trackbars() -> dict:
+    """Mantiene los límites de HSV y ROI válidos al mover las barras (clase 3)."""
     lee = lambda nombre: cv2.getTrackbarPos(nombre, VENTANA)  # noqa: E731
+    bajo = (lee("H min"), lee("S min"), lee("V min"))
+    alto = tuple(max(inferior, lee(nombre)) for inferior, nombre in
+                 zip(bajo, ("H max", "S max", "V max")))
+    arriba = min(lee("ROI arriba %"), 99)
+    abajo = max(lee("ROI abajo %"), arriba + 1)
+    poner_trackbars(bajo, alto)
+    cv2.setTrackbarPos("ROI arriba %", VENTANA, arriba)
+    cv2.setTrackbarPos("ROI abajo %", VENTANA, abajo)
     return {
-        "bajo": (lee("H min"), lee("S min"), lee("V min")),
-        "alto": (lee("H max"), lee("S max"), lee("V max")),
-        "roi": (lee("ROI arriba %") / 100, max(lee("ROI abajo %"), lee("ROI arriba %") + 1) / 100),
+        "bajo": bajo,
+        "alto": alto,
+        "roi": (arriba / 100, abajo / 100),
         "apertura": lee("Apertura"),
         "cierre": lee("Cierre"),
     }
@@ -70,6 +81,18 @@ def poner_trackbars(bajo, alto) -> None:
         cv2.setTrackbarPos(nombre, VENTANA, int(valor))
     for nombre, valor in zip(("H max", "S max", "V max"), alto):
         cv2.setTrackbarPos(nombre, VENTANA, int(valor))
+
+
+def cargar_modo(config: Config, modo: str) -> None:
+    """Carga también la ROI del modo: las señales miran una zona diferente."""
+    poner_trackbars(*getattr(config, f"hsv_{modo}"))
+    roi = ((min(config.roi_linea_lejana[0], config.roi_linea_cercana[0]),
+            max(config.roi_linea_lejana[1], config.roi_linea_cercana[1]))
+           if modo == "linea" else config.roi_senal)
+    cv2.setTrackbarPos("ROI arriba %", VENTANA, round(roi[0] * 100))
+    cv2.setTrackbarPos("ROI abajo %", VENTANA, round(roi[1] * 100))
+    cv2.setTrackbarPos("Apertura", VENTANA, config.iteraciones_apertura)
+    cv2.setTrackbarPos("Cierre", VENTANA, config.iteraciones_cierre)
 
 
 def limpiar(mascara, apertura: int, cierre: int, tamano: int):
@@ -103,37 +126,59 @@ def vista(frame, mascara, roi, modo: str, info: str):
     return np.hstack((izquierda, centro, derecha))
 
 
-def guardar(config: Config, modo: str, valores: dict, ruta: Path) -> None:
-    """Escribe en el JSON el rango del modo actual y las ROI."""
-    bajo, alto = valores["bajo"], valores["alto"]
-
+def configuracion_ajustada(config: Config, modo: str, valores: dict) -> Config:
+    """Ajusta la ROI (clase 1) conservando la distribución de las dos franjas."""
+    cambios = {f"hsv_{modo}": (valores["bajo"], valores["alto"]),
+               "iteraciones_apertura": valores["apertura"],
+               "iteraciones_cierre": valores["cierre"]}
     if modo == "linea":
-        config.hsv_linea = (bajo, alto)
-        config.roi_linea_lejana = (valores["roi"][0], sum(valores["roi"]) / 2)
-        config.roi_linea_cercana = (sum(valores["roi"]) / 2, valores["roi"][1])
-    elif modo == "rojo":
-        # Se guarda en el rango que corresponda segun donde quedo H.
-        if bajo[0] > 90:
-            config.hsv_rojo_alto = (bajo, alto)
-        else:
-            config.hsv_rojo_bajo = (bajo, alto)
-        config.roi_senal = valores["roi"]
+        arriba = min(config.roi_linea_lejana[0], config.roi_linea_cercana[0])
+        abajo = max(config.roi_linea_lejana[1], config.roi_linea_cercana[1])
+        nuevo_arriba, nuevo_abajo = valores["roi"]
+        if (nuevo_arriba, nuevo_abajo) != (arriba, abajo):
+            escala = (nuevo_abajo - nuevo_arriba) / (abajo - arriba)
+            for nombre in ("roi_linea_lejana", "roi_linea_cercana"):
+                cambios[nombre] = tuple(nuevo_arriba + (y - arriba) * escala
+                                        for y in getattr(config, nombre))
     else:
-        config.hsv_verde = (bajo, alto)
-        config.roi_senal = valores["roi"]
+        cambios["roi_senal"] = valores["roi"]
+    return replace(config, **cambios)
 
-    config.iteraciones_apertura = valores["apertura"]
-    config.iteraciones_cierre = valores["cierre"]
-    config.guardar(ruta)
+
+def guardar(config: Config, modo: str, valores: dict, ruta: Path) -> Config:
+    """Valida antes de guardar; un ajuste fallido no altera la configuración."""
+    candidata = configuracion_ajustada(config, modo, valores)
+    candidata.guardar(ruta)
     print(f"Guardado {modo} en {ruta}")
+    return candidata
 
 
 def cargar_imagenes(ruta: Path):
-    """Devuelve una lista de frames (carpeta de imagenes) o None si es video."""
-    if ruta.is_dir():
-        archivos = sorted(f for f in ruta.rglob("*") if f.suffix.lower() in EXTENSIONES_IMG)
-        return [cv2.imread(str(f)) for f in archivos]
-    return None
+    """Devuelve imágenes legibles o None si es video; informa entradas rotas."""
+    if not ruta.is_dir():
+        return None
+    archivos = sorted(f for f in ruta.rglob("*")
+                      if f.is_file() and f.suffix.lower() in EXTENSIONES_IMG)
+    if not archivos:
+        raise ValueError(f"No hay imágenes en {ruta}")
+    imagenes = []
+    for archivo in archivos:
+        frame = cv2.imread(str(archivo))
+        if frame is None:
+            raise ValueError(f"No se pudo leer la imagen: {archivo}")
+        imagenes.append(frame)
+    return imagenes
+
+
+def leer_video(captura):
+    """Repite clips al terminar y falla si ni el primer frame se puede leer."""
+    ok, frame = captura.read()
+    if not ok or frame is None:
+        captura.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        ok, frame = captura.read()
+    if not ok or frame is None:
+        raise ValueError("El video no contiene frames legibles.")
+    return frame
 
 
 def main() -> None:
@@ -143,73 +188,71 @@ def main() -> None:
                         help="JSON donde guardar (tecla g)")
     argumentos = parser.parse_args()
 
-    ruta = Path(argumentos.fuente)
-    config = Config.desde_json(argumentos.config) if Path(argumentos.config).exists() else Config()
+    captura = None
+    try:
+        ruta = Path(argumentos.fuente)
+        config = Config.desde_json(argumentos.config) if Path(argumentos.config).exists() else Config()
+        imagenes = cargar_imagenes(ruta)
+        if imagenes is None:
+            captura = cv2.VideoCapture(str(ruta))
+            if not captura.isOpened():
+                raise ValueError(f"No se pudo abrir el video: {ruta}")
+            frame = leer_video(captura)
+        else:
+            frame = imagenes[0]
+        crear_trackbars(config)
+        modo = "linea"
+        cargar_modo(config, modo)
+        indice = 0
+        pausa = False
 
-    crear_trackbars(config)
-    modo = "linea"
-    imagenes = cargar_imagenes(ruta)
-    captura = None if imagenes is not None else cv2.VideoCapture(str(ruta))
-    indice = 0
-    pausa = False
-    frame = imagenes[0] if imagenes else None
+        while True:
+            valores = leer_trackbars()
+            # Misma resolución y suavizado que recibe la segmentación del robot.
+            preparado = preparar(frame, config)
+            hsv = cv2.cvtColor(preparado, cv2.COLOR_BGR2HSV)
+            mascara = cv2.inRange(hsv, valores["bajo"], valores["alto"])
+            mascara = limpiar(mascara, valores["apertura"], valores["cierre"], config.kernel_morfologico)
 
-    while True:
-        if imagenes is None and not pausa:
-            ok, nuevo = captura.read()
+            alto = preparado.shape[0]
+            y1, y2 = int(alto * valores["roi"][0]), int(alto * valores["roi"][1])
+            mascara[:y1] = 0
+            mascara[y2:] = 0
+            porcentaje = 100 * np.count_nonzero(mascara) / mascara.size
+            info = f"{valores['bajo']} - {valores['alto']}  ({porcentaje:.1f}% del frame)"
+            cv2.imshow(VENTANA, vista(preparado, mascara, valores["roi"], modo, info))
+            tecla = cv2.waitKey(30) & 0xFF
 
-            if not ok:  # el video se repite en bucle
-                captura.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                continue
-
-            frame = nuevo
-
-        valores = leer_trackbars()
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mascara = cv2.inRange(hsv, valores["bajo"], valores["alto"])
-        mascara = limpiar(mascara, valores["apertura"], valores["cierre"], config.kernel_morfologico)
-
-        # Solo cuenta lo que cae dentro de la ROI.
-        alto = frame.shape[0]
-        y1, y2 = int(alto * valores["roi"][0]), int(alto * valores["roi"][1])
-        fuera = np.ones_like(mascara)
-        fuera[y1:y2, :] = 0
-        mascara[fuera == 1] = 0
-
-        porcentaje = 100 * np.count_nonzero(mascara) / mascara.size
-        info = f"{valores['bajo']} - {valores['alto']}  ({porcentaje:.1f}% del frame)"
-
-        cv2.imshow(VENTANA, vista(frame, mascara, valores["roi"], modo, info))
-        tecla = cv2.waitKey(30) & 0xFF
-
-        if tecla in (ord("q"), 27):
-            break
-        elif tecla in MODOS:
-            modo = MODOS[tecla]
-            rangos = {
-                "linea": config.hsv_linea,
-                "rojo": config.hsv_rojo_alto,
-                "verde": config.hsv_verde,
-            }[modo]
-            poner_trackbars(*rangos)
-        elif tecla == ord(" "):
-            pausa = not pausa
-        elif tecla == ord("g"):
-            guardar(config, modo, valores, Path(argumentos.config))
-        elif tecla in (ord("n"), ord("p")):
-            paso = 1 if tecla == ord("n") else -1
-
-            if imagenes is not None:
-                indice = (indice + paso) % len(imagenes)
-                frame = imagenes[indice]
-            else:
-                actual = captura.get(cv2.CAP_PROP_POS_FRAMES)
-                captura.set(cv2.CAP_PROP_POS_FRAMES, max(0, actual + paso * 10))
-
-    if captura is not None:
-        captura.release()
-
-    cv2.destroyAllWindows()
+            if tecla in (ord("q"), 27):
+                break
+            if tecla in MODOS:
+                modo = MODOS[tecla]
+                cargar_modo(config, modo)
+            elif tecla == ord(" "):
+                pausa = not pausa
+            elif tecla == ord("g"):
+                try:
+                    config = guardar(config, modo, valores, Path(argumentos.config))
+                except (OSError, ValueError) as error:
+                    print(f"No se guardó la calibración: {error}", file=sys.stderr)
+            elif tecla in (ord("n"), ord("p")):
+                paso = 1 if tecla == ord("n") else -1
+                if imagenes is not None:
+                    indice = (indice + paso) % len(imagenes)
+                    frame = imagenes[indice]
+                else:
+                    actual = captura.get(cv2.CAP_PROP_POS_FRAMES)
+                    captura.set(cv2.CAP_PROP_POS_FRAMES, max(0, actual + paso * 10))
+                    frame = leer_video(captura)
+                    continue
+            if captura is not None and not pausa:
+                frame = leer_video(captura)
+    except (OSError, ValueError, cv2.error) as error:
+        parser.exit(1, f"No se pudo calibrar: {error}\n")
+    finally:
+        if captura is not None:
+            captura.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

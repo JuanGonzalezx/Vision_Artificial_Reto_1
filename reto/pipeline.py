@@ -24,19 +24,24 @@ def preparar(frame, config: Config):
     Procesar en pequeño es lo que mantiene los FPS, y los FPS son los que
     deciden si la corrección llega a tiempo.
     """
+    if frame is None or getattr(frame, "ndim", None) != 3 or frame.shape[2] != 3:
+        raise ValueError("El pipeline necesita un frame BGR de tres canales")
     alto, ancho = frame.shape[:2]
+    if alto == 0 or ancho == 0:
+        raise ValueError("El pipeline recibió un frame vacío")
 
     if ancho != config.ancho_proceso:
-        nuevo_alto = int(alto * config.ancho_proceso / ancho)
+        nuevo_alto = max(1, int(alto * config.ancho_proceso / ancho))
         frame = cv2.resize(frame, (config.ancho_proceso, nuevo_alto))
 
-    kernel = config.kernel_gauss + (1 - config.kernel_gauss % 2)  # siempre impar
-    return cv2.GaussianBlur(frame, (kernel, kernel), 0)
+    return cv2.GaussianBlur(frame, (config.kernel_gauss, config.kernel_gauss), 0)
 
 
 def recortar(frame, franja: tuple[float, float]):
     """Devuelve la franja horizontal indicada (ROI, clase 1)."""
     y1, y2 = franja_a_pixeles(frame.shape[0], franja)
+    if not 0 <= y1 < y2 <= frame.shape[0]:
+        raise ValueError(f"La ROI {franja} no contiene filas válidas con este tamaño de frame")
     return frame[y1:y2, :], y1
 
 
@@ -84,6 +89,7 @@ def procesar_frame(frame, estado: Estado, config: Config,
 
 
 def suavizar(linea: ResultadoLinea, estado: Estado, config: Config) -> ResultadoLinea:
+    """Promedia las últimas desviaciones con operaciones aritméticas (clase 2)."""
     if config.suavizado_desviacion <= 1 or not linea.detectada:
         if not linea.detectada:
             estado.ultimas_desviaciones.clear()

@@ -41,7 +41,7 @@ def circularidad(area: float, perimetro: float) -> float:
 
 def es_octagono(vertices: int, ancho: int, alto: int, area: float, perimetro: float,
                 config: Config) -> bool:
-    """Aplica los tres filtros de forma sobre un contorno candidato."""
+    """Aplica vértices, relación de aspecto y circularidad (clase 3)."""
     minimo, maximo = config.vertices_octagono
 
     if not minimo <= vertices <= maximo:
@@ -62,8 +62,15 @@ def es_octagono(vertices: int, ancho: int, alto: int, area: float, perimetro: fl
 def _limpiar(mascara, config: Config):
     """Apertura para quitar motas y cierre para tapar huecos (clase 3)."""
     kernel = np.ones((config.kernel_morfologico, config.kernel_morfologico), np.uint8)
-    mascara = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, kernel, iterations=1)
-    return cv2.morphologyEx(mascara, cv2.MORPH_CLOSE, kernel, iterations=2)
+    if config.iteraciones_apertura:
+        mascara = cv2.morphologyEx(
+            mascara, cv2.MORPH_OPEN, kernel, iterations=config.iteraciones_apertura
+        )
+    if config.iteraciones_cierre:
+        mascara = cv2.morphologyEx(
+            mascara, cv2.MORPH_CLOSE, kernel, iterations=config.iteraciones_cierre
+        )
+    return mascara
 
 
 def mascaras_de_color(roi, config: Config) -> dict:
@@ -82,7 +89,7 @@ def mascaras_de_color(roi, config: Config) -> dict:
 
 
 def candidatos_en_mascara(mascara, tipo: str, config: Config) -> list[dict]:
-    """Contornos de la máscara que podrían ser una señal."""
+    """Contornos, área, polígono y relación de aspecto (clase 3)."""
     contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     encontrados = []
 
@@ -98,7 +105,8 @@ def candidatos_en_mascara(mascara, tipo: str, config: Config) -> list[dict]:
 
         # Una señal es un bloque compacto de color: si el contorno es una
         # tira larga y delgada, es un reflejo o el borde de algo, no una señal.
-        if alto == 0 or not 0.4 <= ancho / alto <= 2.5:
+        minima, maxima = config.relacion_aspecto_senal
+        if alto == 0 or not minima <= ancho / alto <= maxima:
             continue
 
         encontrados.append({

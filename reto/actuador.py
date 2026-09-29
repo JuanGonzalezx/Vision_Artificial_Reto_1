@@ -63,9 +63,12 @@ class ActuadorRegistro:
         contexto = contexto or {}
         linea = contexto.get("linea")
         senal = contexto.get("senal")
+        tiempo = contexto.get("tiempo")
+        if tiempo is None:
+            tiempo = time.monotonic() - self._inicio
 
         self._csv.writerow((
-            f"{time.monotonic() - self._inicio:.3f}",
+            f"{tiempo:.3f}",
             decision.accion.value,
             f"{decision.giro:.3f}",
             decision.razon,

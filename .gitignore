@@ -19,7 +19,7 @@ datos/grabaciones/
 *.mp4
 *.mov
 # los clips livianos de tools/preparar_videos.py si entran al repo
-!datos/clips/*.mp4
+!datos/clips/**/*.mp4
 # el video de demostracion para la sustentacion tambien
 !docs/media/*.mp4
 

@@ -1,85 +1,77 @@
-# Flujo de pruebas: de los videos del profesor a la pista
+# Flujo de pruebas: de los clips a la pista
 
-Cuatro niveles, del más barato al más caro. Cada uno valida algo distinto, y ninguno reemplaza al siguiente.
+Cada nivel valida algo distinto. Una ejecución correcta sobre archivos es suficiente para demostrar el algoritmo, pero no certifica el comportamiento del robot en movimiento.
 
-| Nivel | Con qué | Qué valida | Qué **no** valida |
+| Nivel | Material | Qué valida | Límite |
 |---|---|---|---|
-| 0. Frames sueltos | `datos/frames/*.jpg` | Rangos de color, ROI, tamaños de kernel | Nada que dependa del tiempo |
-| 1. Clips del profesor | `datos/clips/*.mp4` | Segmentación de la línea y detección de señales, cuadro a cuadro | El control: el video no reacciona a lo que decidimos |
-| 2. Simulador | el juego de Daniel | Máquina de estados, ganancias, recuperación de la línea | La percepción, si los frames son dibujados |
-| 3. Pista real | celular + pista | Todo junto, con la luz y los FPS reales | — |
+| 0. Pruebas del programa | Datos sintéticos y capturas simuladas | Contratos, estados, errores, cierre y compatibilidad | No mide percepción en el salón |
+| 1. Frames | `datos/frames/` | Color, ROI, morfología y geometría | No valida tiempo ni movimiento |
+| 2. Clips | `datos/clips/` | Percepción y decisiones sobre secuencias reales | El video no cambia por nuestras decisiones |
+| 3. Simulación conectada | Pendiente | Control que modifica la siguiente observación | La página JavaScript actual no está conectada |
+| 4. Pista real | Cámara y robot del profesor | Percepción, control, iluminación y latencia juntos | Requiere integración autorizada pendiente |
 
-## Nivel 0 — Calibrar con frames
+## Verificación reproducible del programa
 
-Calibrar es mirar **un frame**, no un video. `tools/preparar_videos.py` saca varios frames repartidos de cada video justo para esto.
-
-1. K-Means sobre un frame de la pista → los centroides son los colores dominantes, con su H y su S (clase 4).
-2. Esos valores entran a `reto/config.py` (o a un JSON de calibración).
-3. Se verifica con la máscara: `uv run main.py --fuente datos/clips/pista1.mp4 --mascaras`.
-
-## Nivel 1 — Percepción con los clips (lazo abierto)
+Desde la raíz del repositorio:
 
 ```bash
-uv run main.py --fuente datos/clips/pista1.mp4 --mascaras --grabar
+uv sync --locked
+uv run python tools/probar_control.py
+uv run python -m unittest discover -s tests -v
+uv run python tools/evaluar.py --salida datos/grabaciones/evaluacion_actual.csv
+uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --sin-ventana --grabar
 ```
 
-Se mira la máscara, no el video bonito: ¿la línea queda entera y sin huecos?, ¿el octágono aparece completo?, ¿algo rojo del fondo se cuela? `--grabar` deja el video procesado y un CSV con las decisiones en `datos/grabaciones/`, que es material directo para el póster.
+El último comando procesa el archivo una sola vez y debe terminar sin reconectar ni repetirlo. Deja un video y un CSV en `datos/grabaciones/`. Los errores al abrir la fuente o una configuración deben producir un mensaje comprensible y salida fallida; no una ejecución aparentemente exitosa sin frames.
 
-Esto **no** valida el control: el video hace lo mismo pase lo que pase.
+Al modificar el algoritmo, evaluar **antes y después**, con los mismos clips y configuración:
 
-## Nivel 2 — Simulador (lazo cerrado)
-
-Aquí sí se cierra el lazo: la decisión mueve el carrito y cambia lo que se ve después. Es la única forma de ver si las ganancias y los estados se comportan, sin tener el carro.
-
-**Cómo encaja sin romper nada:** el simulador es un **actuador** más (`reto/actuador.py`). Recibe la misma `Decision` que recibiría el robot, así que `control.py` no cambia ni una línea cuando pasemos al hardware.
-
-```python
-class ActuadorSimulador:
-    def aplicar(self, decision, contexto=None):
-        # traduce accion/giro al movimiento del carrito
-    def cerrar(self): ...
+```bash
+uv run python tools/evaluar.py --salida datos/grabaciones/evaluacion_antes.csv
+# Aplicar el cambio que se quiere medir
+uv run python tools/evaluar.py --salida datos/grabaciones/evaluacion_despues.csv
 ```
 
-Dos formas de conectarlo, en orden de simplicidad:
+Comparar frames, porcentaje de línea, saltos, señales y dirección de búsqueda por clip. Los FPS de proceso dependen del equipo y la carga: sirven como referencia de rendimiento, no como resultado determinista ni como FPS del celular. Si cambia el algoritmo, revisar máscaras de los casos afectados antes de aceptar una mejora numérica.
 
-1. **Todo en un proceso** (recomendado para empezar): el simulador dibuja la vista de la cámara, esa imagen entra a `procesar_frame`, la `Decision` vuelve al simulador.
+## Calibración con frames y clips
 
-   ```python
-   while True:
-       frame = simulador.renderizar_vista_camara()
-       decision, _ = procesar_frame(frame, estado, config)
-       simulador.aplicar(decision)
-   ```
+Los videos de ensayo ya están preparados. Para material nuevo:
 
-   Con esto el lazo queda cerrado de punta a punta: visión → control → movimiento → nueva vista.
+1. Guardar originales en `datos/originales/` y ejecutar `uv run python tools/preparar_videos.py`.
+2. Abrir `uv run python tools/calibrar.py datos/clips/rutaIdeal/video1.mp4` y ajustar ROI/HSV observando las máscaras.
+3. Como propuesta inicial, ejecutar `uv run python tools/calibrar_kmeans.py datos/frames -o config_local.json`.
+4. Evaluar con `uv run python tools/evaluar.py --config config_local.json` y comparar contra la configuración base.
+5. Ver el resultado con `uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --config config_local.json --mascaras`.
 
-2. **Dos procesos** (el simulador como juego aparte, hablando por UDP o HTTP con el cerebro). Más realista respecto al robot, pero más cosas que pueden fallar. Solo si el simulador crece.
+K-Means no decide qué configuración es mejor. El umbral V=129 propuesto en un ensayo aumentó la cantidad de detecciones, pero también los saltos y la búsqueda equivocada: se mantuvo V=110. Ver [bitácora](bitacora.md).
 
-**Detalle del tiempo:** `control.decidir` recibe el parámetro `ahora`. En el simulador se le pasa el reloj del simulador, y así los 3 segundos del PARE se respetan aunque la simulación corra más rápido o más lento que el tiempo real.
+## Qué significan las métricas
 
-**La trampa del simulador:** si dibuja la pista con colores planos, la percepción ahí siempre va a funcionar y eso no dice nada de la pista real. Dos formas de que no engañe:
+- **`linea_%`:** fracción de frames donde el detector devolvió un contorno válido. Sin anotaciones manuales no es exactitud ni precisión de segmentación.
+- **Saltos:** cambios grandes de desviación entre detecciones consecutivas. Son una alerta para revisar el frame: también podrían aparecer con cámara movida, baja frecuencia o geometría difícil.
+- **`pare` y `siga`:** cantidad de frames con cada detección, no número de señales distintas ni número de paradas.
+- **Búsqueda correcta:** en clips cuyo nombre indica izquierda/derecha, se comprueba que predomine `BUSCAR` hacia ese lado. No prueba que el robot haya vuelto a la pista.
+- **Cero detecciones en clips sin señales:** evidencia limitada a esos clips; no garantiza cero falsos positivos en cualquier ambiente.
+- **`fps_proceso`:** velocidad de ejecución del pipeline sobre un archivo. No incluye la latencia del celular ni mide la reacción física del robot.
 
-- que el simulador le meta ruido, desenfoque e iluminación despareja a la vista, o
-- probar el control con la desviación exacta que da el simulador (saltándose la visión) y dejar la percepción para los niveles 1 y 3.
+Los nueve clips contienen 2341 frames. La referencia previa a la estabilización está en `datos/grabaciones/evaluacion_antes_estabilizacion.csv`: 91.1% de detección de línea, 4 saltos y búsqueda del lado esperado en los cinco clips de descarrilamiento. Los CSV locales están ignorados por Git; para compartir resultados duraderos, registrar una tabla en la bitácora.
 
-## Nivel 3 — Pista real
+## Tiempo y registro de decisiones
 
-Celular por WiFi, pista, luz del salón. Lo que siempre sorprende aquí son dos cosas: **los FPS** (si caen, el control llega tarde) y **la luz** (los rangos calibrados con los videos del profesor pueden no servir). Por eso la calibración tiene que poder rehacerse en dos minutos el día de la carrera.
+El control recibe `ahora`. En archivos se usa el tiempo del video (`frame / FPS`); en cámaras se usa el reloj monotónico. El CSV registra el mismo tiempo de la secuencia. Esto permite reproducir un PARE sin depender de la velocidad de la computadora. El video procesado es de frecuencia constante; para investigar tiempos y eventos, el CSV es la referencia.
 
-## Qué revisar en el CSV de `--grabar`
+Al perder un stream o cerrar el programa se emite `PARAR` hacia los actuadores configurados. Actualmente estos son consola/CSV. Al integrar otro actuador se debe comprobar que traduzca esa orden, incluyendo el caso de pérdida de comunicación; esta prueba todavía no se ha realizado con el robot.
 
-Con `datos/grabaciones/*_decisiones.csv` salen las gráficas del análisis de resultados:
+## Simulación y práctica pendiente
 
-- cuántos frames estuvo sin ver la línea (y si llegó a `BUSCANDO`),
-- cuántas veces cambió de IZQUIERDA a DERECHA por segundo (si zigzaguea, sobra ganancia o falta zona muerta),
-- en qué momento reconoció cada señal y con qué área (o sea, a qué distancia),
-- si hubo un PARE o un SIGA que se disparó donde no debía.
+Se puede abrir `simulacion/index.html` en el navegador para ver la demo de Daniel. Tiene control propio en JavaScript y no consume las decisiones de `reto/control.py`; sus resultados no validan este algoritmo. La integración propuesta está en [0003](decisiones/0003-simulador-y-actuador.md): un actuador recibe `Decision`, mueve el simulador y este devuelve el siguiente frame y su reloj.
 
-## Orden sugerido esta semana
+Para la clase en CI2DT2:
 
-1. Bajar los videos a `datos/originales/` y correr `uv run python tools/preparar_videos.py`.
-2. Calibrar los colores con los frames (nivel 0) y verificar con los clips (nivel 1).
-3. En paralelo: simulador como `ActuadorSimulador` (nivel 2), primero con la desviación del simulador y después con su vista pasando por el pipeline.
-4. Integrar con la cámara del celular y repetir la calibración en el salón (nivel 3).
-
-Un aviso: el simulador es la parte más divertida y la que menos nota da por sí sola. Vale la pena mantenerlo simple y con tiempo acotado; la nota sale de la pista.
+- Mostrar [diagramas](arquitectura.md), clip con máscaras, pruebas y tabla de resultados.
+- Confirmar duración exacta de PARE, si SIGA puede acortarla y geometría real de las señales.
+- Fijar el montaje de cámara y medir FPS/latencia y cambios de iluminación.
+- Recalibrar ROI y colores con ese montaje; capturar clips propios y evaluarlos.
+- Integrar más adelante la API Python indicada por el profesor, sin modificar Arduino ni configuraciones electrónicas.
+- Registrar cada ensayo real en la bitácora: intervenciones, descarrilamientos, respuesta a señales y tiempo de recorrido.

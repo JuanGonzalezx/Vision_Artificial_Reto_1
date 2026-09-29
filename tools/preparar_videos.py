@@ -22,9 +22,11 @@ Necesita ffmpeg (viene con: brew install ffmpeg).
 from __future__ import annotations
 
 import argparse
+import math
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -38,6 +40,16 @@ def mb(ruta: Path) -> float:
     return ruta.stat().st_size / 1_000_000
 
 
+def ejecutar_salida(comando: list[str], destino: Path) -> None:
+    """Solo reemplaza el archivo anterior cuando ffmpeg produjo una salida real."""
+    with tempfile.TemporaryDirectory(dir=destino.parent, prefix=".preparar-") as carpeta:
+        temporal = Path(carpeta) / destino.name
+        subprocess.run([*comando, str(temporal)], check=True)
+        if not temporal.is_file() or temporal.stat().st_size == 0:
+            raise ValueError(f"ffmpeg no produjo el archivo esperado: {destino}")
+        temporal.replace(destino)
+
+
 def comprimir(origen: Path, destino: Path, ancho: int, calidad: int, fps: int) -> None:
     """Recomprime con H.264: reescala, baja los fps y quita el audio.
 
@@ -45,19 +57,18 @@ def comprimir(origen: Path, destino: Path, ancho: int, calidad: int, fps: int) -
     28-32 se ve bien para calibrar; el color, que es lo que nos importa,
     casi no se toca.
     """
-    subprocess.run(
+    ejecutar_salida(
         [
             "ffmpeg", "-y", "-loglevel", "error",
             "-i", str(origen),
             # min(iw, ancho): nunca agranda un video que ya es pequeño
-            "-vf", f"scale='min(iw,{ancho})':-2",
+            "-vf", f"scale='trunc(min(iw,{ancho})/2)*2':-2",
             "-r", str(fps),
             "-c:v", "libx264", "-crf", str(calidad), "-preset", "slow",
             "-pix_fmt", "yuv420p",
             "-an",
-            str(destino),
         ],
-        check=True,
+        destino,
     )
 
 
@@ -69,9 +80,8 @@ def extraer_frames(origen: Path, carpeta: Path, cantidad: int, ancho: int) -> in
     """
     duracion = duracion_segundos(origen)
 
-    if duracion <= 0:
-        return 0
-
+    if cantidad <= 0:
+        raise ValueError("La cantidad de frames debe ser mayor que cero.")
     guardados = 0
 
     for indice in range(cantidad):
@@ -79,17 +89,16 @@ def extraer_frames(origen: Path, carpeta: Path, cantidad: int, ancho: int) -> in
         momento = duracion * (indice + 0.5) / cantidad
         salida = carpeta / f"{origen.stem}_{indice:02d}.jpg"
 
-        subprocess.run(
+        ejecutar_salida(
             [
                 "ffmpeg", "-y", "-loglevel", "error",
                 "-ss", f"{momento:.2f}",
                 "-i", str(origen),
                 "-frames:v", "1",
-                "-vf", f"scale='min(iw,{ancho})':-2",
+                "-vf", f"scale='trunc(min(iw,{ancho})/2)*2':-2",
                 "-q:v", "3",
-                str(salida),
             ],
-            check=True,
+            salida,
         )
         guardados += 1
 
@@ -107,9 +116,12 @@ def duracion_segundos(video: Path) -> float:
         capture_output=True, text=True, check=True,
     )
     try:
-        return float(salida.stdout.strip())
-    except ValueError:
-        return 0.0
+        duracion = float(salida.stdout.strip())
+    except ValueError as error:
+        raise ValueError(f"No se pudo obtener la duración del video: {video}") from error
+    if not math.isfinite(duracion) or duracion <= 0:
+        raise ValueError(f"El video no tiene una duración válida: {video}")
+    return duracion
 
 
 def main() -> None:
@@ -121,13 +133,18 @@ def main() -> None:
     parser.add_argument("--frames", type=int, default=5, help="frames de calibracion por video")
     argumentos = parser.parse_args()
 
+    if argumentos.ancho < 2 or argumentos.fps <= 0 or argumentos.frames <= 0:
+        parser.error("--ancho debe ser al menos 2; --fps y --frames deben ser positivos.")
+    if not 0 <= argumentos.calidad <= 51:
+        parser.error("--calidad debe estar entre 0 y 51 (CRF de x264).")
+
     if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
         sys.exit("Falta ffmpeg. Instalalo con: brew install ffmpeg")
 
     CLIPS.mkdir(parents=True, exist_ok=True)
     FRAMES.mkdir(parents=True, exist_ok=True)
 
-    videos = sorted(v for v in ORIGINALES.rglob("*") if v.suffix.lower() in EXTENSIONES)
+    videos = sorted(v for v in ORIGINALES.rglob("*") if v.is_file() and v.suffix.lower() in EXTENSIONES)
 
     if not videos:
         sys.exit(f"No hay videos en {ORIGINALES.relative_to(RAIZ)}/. Pon ahi los del profesor.")
@@ -144,8 +161,11 @@ def main() -> None:
         carpeta_frames.mkdir(parents=True, exist_ok=True)
 
         destino = carpeta_clips / f"{video.stem}.mp4"
-        comprimir(video, destino, argumentos.ancho, argumentos.calidad, argumentos.fps)
-        guardados = extraer_frames(video, carpeta_frames, argumentos.frames, argumentos.ancho)
+        try:
+            comprimir(video, destino, argumentos.ancho, argumentos.calidad, argumentos.fps)
+            guardados = extraer_frames(video, carpeta_frames, argumentos.frames, argumentos.ancho)
+        except (OSError, ValueError, subprocess.CalledProcessError) as error:
+            parser.exit(1, f"No se pudo preparar {video}: {error}\n")
 
         total_antes += mb(video)
         total_despues += mb(destino)
