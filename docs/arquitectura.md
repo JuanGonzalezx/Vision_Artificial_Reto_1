@@ -149,7 +149,7 @@ La referencia es [técnicas permitidas](reto/tecnicas-permitidas.md). El detalle
 
 ## 6. Simulador, robot y trabajo del equipo
 
-`simulacion/index.html` implementa una demo autónoma en JavaScript. No existe todavía un puente entre esa página y `procesar_frame`/`Decision`. La [decisión 0003](decisiones/0003-simulador-y-actuador.md) describe cómo integrarlo mediante un actuador; sigue siendo una propuesta.
+`simulacion/index.html` implementa una demo autónoma en JavaScript. El puente ya existe: `uv run main.py --index` levanta `reto/simulador.py`, que recibe la pantalla del simulador como cámara y le devuelve la `Decision` como actuador (calibración en `configs/simulador.json`). Sigue la [decisión 0003](decisiones/0003-simulador-y-actuador.md).
 
 Para cerrar el lazo, la imagen que dibuje el simulador debe entrar al pipeline y la decisión debe cambiar su siguiente imagen. Para el robot hará falta un adaptador que traduzca `Decision` a la API autorizada por el profesor. Ninguna de esas conexiones forma parte de esta estabilización; no se toca Arduino ni electrónica.
 

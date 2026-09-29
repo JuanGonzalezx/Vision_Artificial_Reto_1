@@ -96,11 +96,16 @@ class ActuadorMultiple:
             actuador.cerrar()
 
 
+def comando_desde_decision(decision: Decision) -> dict:
+    """Formato común de la orden: acción y giro (-1 izquierda .. +1 derecha).
+
+    Lo usa el puente del simulador (`reto/simulador.py`) para responderle al
+    navegador; el robot real traduce la `Decision` por su cuenta.
+    """
+    return {"accion": decision.accion.value, "giro": round(decision.giro, 3)}
+
+
 # --- Pendientes -------------------------------------------------------------
 #
-# ActuadorSimulador (Daniel): recibe la Decision y mueve el carrito del
-# simulador. Si el simulador además dibuja la vista de la cámara, esa imagen
-# se puede meter de vuelta al pipeline y el lazo queda cerrado.
-#
-# ActuadorRobot: traduce la Decision a lo que entienda el hardware (serial,
-# HTTP...). Es lo único que habría que escribir el día que haya carro.
+# El simulador ya entra como actuador y como cámara: `PuenteSimulador`
+# (reto/simulador.py, `main.py --index`).

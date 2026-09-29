@@ -66,6 +66,9 @@ Sin ella, el robot corrige por un error de dos píxeles y oscila. La zona muerta
 **¿Qué pasa si pierde la línea?**
 Entra al estado `BUSCANDO` y gira hacia el último lado donde la vio. Antes de eso mantiene el rumbo unos frames, porque perderla un instante suele ser un reflejo o un frame movido.
 
+**¿Cómo anticipan las curvas?**
+Con el "horizonte": la zona delante del robot se corta en 8 tramos horizontales (ROI). En cada uno sacamos el centroide de la línea con momentos, de abajo hacia arriba, y cada tramo se queda con el trozo más cercano al tramo anterior; así la cadena sigue la misma línea y no salta a una sombra. El robot apunta a un punto de más adelante (promedio ponderado con la franja cercana), como quien maneja mirando la curva y no el capó. Si la cadena se sale por un borde antes de llegar arriba, la curva es cerrada y apuntamos a ese borde. Medido en los clips de descarrilamiento: el giro va hacia el lado correcto 24 % más frames antes de perder la línea. Técnicas: ROI, HSV, inRange, morfología, contornos, momentos y aritmética. Nada de ajuste de rectas ni Hough.
+
 **¿Por qué no un PID?**
 Porque no lo hemos visto en el curso; lo nuestro es proporcional con zona muerta. Si nos piden mejorarlo, un término derivativo ayudaría contra el zigzag.
 
@@ -81,7 +84,7 @@ No hay modelos. Todo son umbrales de color, morfología y propiedades de contorn
 Porque no lo hemos visto en clase todavía (está en el módulo siguiente del programa). Si nos lo autoriza, es una alternativa para tramos rectos.
 
 **¿En qué se diferencia su solución de la de los otros equipos?**
-En tres cosas: calibramos los rangos con K-Means sobre la pista real en vez de a ojo; miramos dos franjas, una cercana para corregir y una lejana para anticipar la curva; y validamos las señales por color, forma, área y persistencia, no solo por color.
+En tres cosas: calibramos los rangos con K-Means sobre la pista real en vez de a ojo; no solo miramos dónde está la línea sino hacia dónde va (el horizonte: centros encadenados de cerca a lejos para anticipar la curva); y validamos las señales por color, forma, área y persistencia, no solo por color.
 
 ## Sobre los números
 

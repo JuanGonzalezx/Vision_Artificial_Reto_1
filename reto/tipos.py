@@ -83,6 +83,7 @@ class Estado:
 
     estado: EstadoRobot = EstadoRobot.SIGUIENDO
     ultimo_giro: float = 0.0
+    ultimo_centro_linea: int | None = None  # x de la línea cercana; evita saltar entre trozos
     frames_sin_linea: int = 0
     frames_con_senal: int = 0
     senal_candidata: str | None = None

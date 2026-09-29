@@ -5,6 +5,8 @@
     uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --sin-ventana --grabar
     uv run main.py --fuente <url> --robot-mac 00:1B:10:21:2C:1B
     uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --robot-simulado
+    uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --bucle
+    uv run main.py --index
 
 También acepta CAMARA_URL, CAMARA_USUARIO y CAMARA_CONTRASENA.
 """
@@ -27,11 +29,15 @@ from reto.camara import abrir_camara, describir_fuente, es_fuente_archivo
 from reto.config import Config
 from reto.overlay import accion_en_grande, dibujar, mosaico
 from reto.pipeline import procesar_frame
+from reto.simulador import PuenteSimulador
 from reto.tipos import Accion, Decision, Estado
 
 VENTANA = "Reto 1 - cerebro del robot"
 VENTANA_MASCARAS = "Mascaras"
 GRABACIONES = Path(__file__).resolve().parent / "datos" / "grabaciones"
+
+# Calibracion del flujo --index: la camara del simulador tiene otra geometria.
+CONFIG_SIMULADOR = "configs/simulador.json"
 
 
 def parsear_argumentos() -> argparse.Namespace:
@@ -55,6 +61,10 @@ def parsear_argumentos() -> argparse.Namespace:
                         help="Franja de la linea en fracciones del alto, por ejemplo 0.70 1.00.")
     parser.add_argument("--roi-senal", type=float, nargs=2, metavar=("DESDE", "HASTA"),
                         help="Franja donde se buscan las senales, por ejemplo 0.00 0.70.")
+    parser.add_argument("--bucle", action="store_true",
+                        help="Con un archivo de video: lo repite al terminar y lo reproduce a su velocidad real.")
+    parser.add_argument("--index", action="store_true",
+                        help="Flujo alterno: el simulador (simulacion/index.html) hace de camara y de robot.")
     parser.add_argument("--grande", action="store_true",
                         help="Escribe la accion con letra grande, para mostrarla desde lejos.")
 
@@ -73,10 +83,12 @@ def parsear_argumentos() -> argparse.Namespace:
     argumentos = parser.parse_args()
     if argumentos.sin_ventana and argumentos.mascaras:
         parser.error("--mascaras requiere ventana; retira --sin-ventana.")
+    if argumentos.index and argumentos.bucle:
+        parser.error("--bucle es para archivos de video; --index usa el simulador como camara.")
     return argumentos
 
 
-def crear_actuador(argumentos: argparse.Namespace, marca: str) -> ActuadorMultiple:
+def crear_actuador(argumentos: argparse.Namespace, marca: str, simulador=None) -> ActuadorMultiple:
     """El mismo contrato sirve para consola, CSV y el robot real."""
     consola = ActuadorConsola() if argumentos.consola else None
     registro = ActuadorRegistro(GRABACIONES / f"{marca}_decisiones.csv") if argumentos.grabar else None
@@ -94,7 +106,7 @@ def crear_actuador(argumentos: argparse.Namespace, marca: str) -> ActuadorMultip
             avanzar_al_girar=argumentos.robot_avanzar_al_girar,
         )
 
-    return ActuadorMultiple(consola, registro, robot)
+    return ActuadorMultiple(consola, registro, robot, simulador)
 
 
 def fps_de_fuente(captura, config: Config) -> float:
@@ -142,23 +154,38 @@ def ejecutar(argumentos, config: Config) -> int:
     config.validar()
     estado = Estado()
     marca = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    es_archivo = es_fuente_archivo(argumentos.fuente)
+    es_archivo = not argumentos.index and es_fuente_archivo(argumentos.fuente)
     captura = grabador = actuador = None
     frames = 0
     tiempo_frame = 0.0
     inicio = time.monotonic()
-    print(f"Abriendo fuente de video: {describir_fuente(argumentos.fuente)}")
+    if not argumentos.index:
+        print(f"Abriendo fuente de video: {describir_fuente(argumentos.fuente)}")
     if not argumentos.sin_ventana:
         print("Presiona 'q' o Esc para salir.")
 
     try:
-        captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena, config)
+        # El simulador es a la vez la camara y un actuador mas (docs/decisiones/0003).
+        simulador = None
+        if argumentos.index:
+            captura = simulador = PuenteSimulador()
+            print(f"Simulador en {simulador.url} (si no se abre solo, pegalo en el navegador)")
+        else:
+            captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena, config)
         fps_fuente = fps_de_fuente(captura, config)
-        actuador = crear_actuador(argumentos, marca)
+        # Un video con --bucle se reproduce a su velocidad real, para que los segundos
+        # del PARE y las esperas del control se comporten como en la pista.
+        espera_ms = int(1000 / fps_fuente) if es_archivo and argumentos.bucle else 1
+        actuador = crear_actuador(argumentos, marca, simulador)
         inicio = time.monotonic()
         while True:
             ok, frame = captura.read()
             if not ok or frame is None:
+                if es_archivo and argumentos.bucle and frames > 0:
+                    # Fin del video de desarrollo: vuelve al inicio con el robot en estado limpio.
+                    captura.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    estado = Estado()
+                    continue
                 if es_archivo:
                     if frames == 0:
                         raise RuntimeError("El archivo no contiene frames que se puedan leer.")
@@ -172,6 +199,7 @@ def ejecutar(argumentos, config: Config) -> int:
                 estado.frames_con_senal = 0
                 estado.senal_candidata = None
                 estado.ultimas_desviaciones.clear()
+                estado.ultimo_centro_linea = None
 
             # En archivos usamos el tiempo del video, aunque se procese más rápido.
             tiempo_frame = frames / fps_fuente if es_archivo else time.monotonic() - inicio
@@ -185,7 +213,8 @@ def ejecutar(argumentos, config: Config) -> int:
             if argumentos.grabar or not argumentos.sin_ventana:
                 vista = dibujar(depuracion["frame"], depuracion["linea"], depuracion["senal"],
                                 decision, estado, config, fps_proceso, depuracion["curvatura"],
-                                depuracion.get("linea_congelada", False))
+                                depuracion.get("linea_congelada", False),
+                                depuracion.get("horizonte"))
                 if argumentos.grande:
                     vista = accion_en_grande(vista, decision)
                 if argumentos.grabar:
@@ -196,7 +225,7 @@ def ejecutar(argumentos, config: Config) -> int:
                     cv2.imshow(VENTANA, vista)
                     if argumentos.mascaras:
                         cv2.imshow(VENTANA_MASCARAS, mosaico(depuracion["frame"], depuracion["mascaras"]))
-                    if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+                    if cv2.waitKey(espera_ms) & 0xFF in (ord("q"), 27):
                         break
     finally:
         # Una salida normal, Ctrl+C o error debe dejar una orden de parada.
@@ -242,7 +271,11 @@ def aplicar_overrides(config: Config, argumentos: argparse.Namespace) -> Config:
 def main() -> int:
     argumentos = parsear_argumentos()
     try:
-        config = Config.desde_json(argumentos.config) if argumentos.config else Config()
+        # El simulador usa su propia calibracion si no se pasa --config.
+        ruta_config = argumentos.config or (CONFIG_SIMULADOR if argumentos.index else None)
+        config = Config.desde_json(ruta_config) if ruta_config else Config()
+        if ruta_config:
+            print(f"Calibracion cargada de: {ruta_config}")
         config = aplicar_overrides(config, argumentos)
         ejecutar(argumentos, config)
     except KeyboardInterrupt:

@@ -41,6 +41,12 @@ uv run main.py --fuente datos/clips/rutaIdeal/video4.mp4 --mascaras --consola
 # Procesar un clip completo sin ventanas; termina al llegar al final
 uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --sin-ventana --grabar
 
+# Video de desarrollo en bucle y a velocidad real (para calibrar sin salir del clip)
+uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --bucle --mascaras
+
+# Flujo alterno: el simulador hace de cámara y de robot (lazo cerrado en el navegador)
+uv run main.py --index
+
 # Webcam
 uv run main.py --fuente 0 --mascaras
 
@@ -72,20 +78,22 @@ Las ROI y los colores están calibrados con los videos del profesor: **el carro 
 ```bash
 uv run python tools/calibrar.py datos/clips/rutaIdeal/video1.mp4
 uv run python tools/calibrar_kmeans.py datos/frames -o config_local.json
+uv run python tools/calibrar_clusters.py --fuente datos/clips/rutaIdeal/video1.mp4 --frame 60 --frame 620 --salida config_local.json
+uv run python tools/evaluar_video.py datos/clips/rutaIdeal/video1.mp4 --config configs/video1-kmeans.json
 uv run python tools/evaluar.py --config config_local.json
 uv run python tools/barrido.py vmax 100 110 120
 ```
 
 K-Means propone rangos; la comparación con clips y máscaras decide si se conservan. La franja lejana se muestra como indicador de curvatura y tiene peso cero en el control por defecto. Las señales de los clips no pasan el filtro estricto de octágono, por eso `exigir_octagono` está desactivado. Duración de PARE, comportamiento de SIGA, iluminación, latencia y montaje deben confirmarse en la práctica.
 
-El archivo [simulacion/index.html](simulacion/index.html) se puede abrir en un navegador. Es una simulación autónoma en JavaScript: todavía no recibe las decisiones de Python ni valida este pipeline en lazo cerrado.
+El archivo [simulacion/index.html](simulacion/index.html) se puede abrir en un navegador solo, como demo autónoma en JavaScript. Con `uv run main.py --index` el navegador manda su pantalla al pipeline como cámara y recibe la `Decision` como si fuera el robot (`reto/simulador.py`, calibración en `configs/simulador.json`). Valida estados y ganancias, no la percepción: los frames dibujados son más limpios que los reales.
 
 ## Equipo y estructura
 
 | Integrante | Frente |
 |---|---|
 | Santiago Bedoya Arcila | Captura y entrada: `reto/camara.py`, `main.py` |
-| Daniel Felipe Franco Rincón | Pipeline, señales y simulación |
+| Daniel Felipe Franco Rincón | Pipeline, línea, calibración K-Means y simulación |
 | Juan David Ocampo González | Línea, control, orquestación y documentación |
 
 ```text
@@ -98,6 +106,7 @@ reto/linea.py            Máscara, contorno, centroide y desviación
 reto/senales.py          Color y propiedades de los contornos de señales
 reto/control.py          Máquina de estados, sin OpenCV
 reto/actuador.py         Consola/CSV e interfaz para futuros adaptadores
+reto/simulador.py        Puente HTTP con el simulador (--index): cámara y actuador a la vez
 reto/overlay.py          HUD y máscaras
 tests/                   Pruebas de integración y casos de error
 tools/                   Evaluación, calibración y preparación de datos

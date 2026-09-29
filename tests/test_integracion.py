@@ -20,7 +20,8 @@ from reto.tipos import Accion, Decision, ResultadoSenal
 
 def argumentos(fuente="prueba.mp4"):
     return argparse.Namespace(fuente=fuente, usuario=None, contrasena=None,
-                              consola=False, grabar=False, sin_ventana=True, mascaras=False)
+                              consola=False, grabar=False, sin_ventana=True, mascaras=False,
+                              index=False, bucle=False)
 
 
 def captura_falsa(lecturas):
