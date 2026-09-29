@@ -16,6 +16,11 @@ Ejemplos de uso:
 
     # Viendo las mascaras, para calibrar
     uv run main.py --fuente datos/videos/pista1.mp4 --mascaras
+    # Un clip de ensayo del profesor, viendo las máscaras para calibrar
+    uv run main.py --fuente datos/clips/pista1.mp4 --mascaras
+
+    # Guardando el video procesado y el registro de decisiones
+    uv run main.py --fuente datos/clips/pista1.mp4 --grabar
 
     # Con una calibracion aparte, sin tocar el codigo
     uv run main.py --config config_pista.json
@@ -32,9 +37,12 @@ from __future__ import annotations
 import argparse
 import os
 import time
+from datetime import datetime
+from pathlib import Path
 
 import cv2
 
+from reto.actuador import ActuadorConsola, ActuadorMultiple, ActuadorRegistro
 from reto.camara import abrir_camara
 from reto.config import Config
 from reto.overlay import dibujar, mosaico
@@ -46,6 +54,7 @@ VENTANA_MASCARAS = "Mascaras"
 
 # Cuantos frames seguidos pueden fallar antes de dar la camara por perdida.
 REINTENTOS = 5
+GRABACIONES = Path("datos/grabaciones")
 
 
 def parsear_argumentos() -> argparse.Namespace:
@@ -86,13 +95,34 @@ def parsear_argumentos() -> argparse.Namespace:
         action="store_true",
         help="Muestra una ventana aparte con el frame preparado y las mascaras.",
     )
+    parser.add_argument(
+        "--grabar", "-g", action="store_true",
+        help="Guarda el video procesado y un CSV con las decisiones en datos/grabaciones/.",
+    )
+    parser.add_argument(
+        "--consola", action="store_true",
+        help="Imprime cada cambio de decision en la terminal.",
+    )
+    parser.add_argument(
+        "--sin-ventana", action="store_true",
+        help="No abre ventanas (para correr sobre un video y solo grabar).",
+    )
     return parser.parse_args()
+
+
+def crear_actuador(argumentos: argparse.Namespace, marca: str):
+    """Arma el actuador segun las opciones: consola, registro o ambos."""
+    consola = ActuadorConsola() if argumentos.consola else None
+    registro = ActuadorRegistro(GRABACIONES / f"{marca}_decisiones.csv") if argumentos.grabar else None
+
+    return ActuadorMultiple(consola, registro)
 
 
 def main() -> None:
     argumentos = parsear_argumentos()
     config = Config.desde_json(argumentos.config) if argumentos.config else Config()
     estado = Estado()
+    marca = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     print(f"Abriendo fuente de video: {argumentos.fuente}")
     if argumentos.config:
@@ -101,6 +131,8 @@ def main() -> None:
 
     captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena)
     intentos_fallidos = 0
+    actuador = crear_actuador(argumentos, marca)
+    grabador = None
     inicio = time.time()
     frames = 0
 
@@ -128,30 +160,40 @@ def main() -> None:
 
             # Un frame entra al pipeline y sale una decision, con sus datos intermedios.
             decision, depuracion = procesar_frame(frame, estado, config)
+            actuador.aplicar(decision, depuracion)
 
             vista = dibujar(
-                frame,
-                depuracion["linea"],
-                depuracion["senal"],
-                decision,
-                estado,
-                config,
-                fps,
+                depuracion["frame"], depuracion["linea"], depuracion["senal"],
+                decision, estado, config, fps, depuracion.get("curvatura", 0.0),
             )
-            cv2.imshow(VENTANA, vista)
 
-            # Para calibrar: el frame preparado junto a las mascaras de cada etapa.
-            if argumentos.mascaras:
-                cv2.imshow(
-                    VENTANA_MASCARAS,
-                    mosaico(depuracion["frame"], depuracion["mascaras"]),
-                )
+            if argumentos.grabar:
+                if grabador is None:
+                    GRABACIONES.mkdir(parents=True, exist_ok=True)
+                    alto, ancho = vista.shape[:2]
+                    grabador = cv2.VideoWriter(
+                        str(GRABACIONES / f"{marca}_procesado.mp4"),
+                        cv2.VideoWriter_fourcc(*"mp4v"), 20.0, (ancho, alto),
+                    )
+                grabador.write(vista)
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            if not argumentos.sin_ventana:
+                cv2.imshow(VENTANA, vista)
+
+                if argumentos.mascaras:
+                    cv2.imshow("Mascaras", mosaico(depuracion["frame"], depuracion["mascaras"]))
+
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
     finally:
         # Liberamos la camara y cerramos las ventanas al terminar.
         captura.release()
+        actuador.cerrar()
+
+        if grabador is not None:
+            grabador.release()
+            print(f"Grabacion guardada en {GRABACIONES}/{marca}_procesado.mp4")
+
         cv2.destroyAllWindows()
 
 

@@ -24,7 +24,8 @@ def linea(desviacion: float) -> ResultadoLinea:
     return ResultadoLinea(detectada=True, centro_x=100, desviacion=desviacion, area=5000)
 
 
-def senal(tipo: str, area: float = 2000) -> ResultadoSenal:
+def senal(tipo: str, area: float = 20000) -> ResultadoSenal:
+    """Area por defecto: la de una señal cerca, medida en los videos (~35.000 px)."""
     return ResultadoSenal(tipo=tipo, area=area, centro=(100, 50), vertices=8)
 
 

@@ -40,11 +40,15 @@ def recortar(frame, franja: tuple[float, float]):
     return frame[y1:y2, :], y1
 
 
-def procesar_frame(frame, estado: Estado, config: Config) -> tuple[Decision, dict]:
+def procesar_frame(frame, estado: Estado, config: Config,
+                   ahora: float | None = None) -> tuple[Decision, dict]:
     """Ejecuta el algoritmo completo sobre un frame.
 
     Devuelve la decisión y un diccionario con los resultados intermedios,
     que overlay usa para dibujar y nosotros para calibrar.
+
+    `ahora` permite pasar un reloj distinto al del sistema: el tiempo del
+    video al evaluar clips, o el del simulador. Sin él usa el reloj real.
     """
     preparado = preparar(frame, config)
 
@@ -58,17 +62,36 @@ def procesar_frame(frame, estado: Estado, config: Config) -> tuple[Decision, dic
     senal: ResultadoSenal = modulo_senales.detectar(roi_senal, config)
 
     linea = combinar_franjas(linea, linea_lejana, config, desplazamiento)
-    decision = decidir(estado, linea, senal, config)
+    linea = suavizar(linea, estado, config)
+    decision = decidir(estado, linea, senal, config, ahora)
+
+    # Diferencia entre lo que ve la franja lejana y la cercana: positiva, la
+    # pista se va a la derecha mas adelante. No entra en la decision todavia
+    # (ver peso_linea_lejana), pero se muestra en el HUD.
+    curvatura = (linea_lejana.desviacion - linea.desviacion
+                 if linea.detectada and linea_lejana.detectada else 0.0)
 
     depuracion = {
         "frame": preparado,
         "linea": linea,
         "linea_lejana": linea_lejana,
+        "curvatura": curvatura,
         "senal": senal,
         "mascaras": {"linea": linea.mascara, "senal": senal.mascara},
     }
 
     return decision, depuracion
+
+
+def suavizar(linea: ResultadoLinea, estado: Estado, config: Config) -> ResultadoLinea:
+    if config.suavizado_desviacion <= 1 or not linea.detectada:
+        if not linea.detectada:
+            estado.ultimas_desviaciones.clear()
+        return linea
+    estado.ultimas_desviaciones.append(linea.desviacion)
+    del estado.ultimas_desviaciones[:-config.suavizado_desviacion]
+    promedio = sum(estado.ultimas_desviaciones) / len(estado.ultimas_desviaciones)
+    return ResultadoLinea(True, linea.centro_x, promedio, linea.area, linea.mascara)
 
 
 def combinar_franjas(cercana: ResultadoLinea, lejana: ResultadoLinea, config: Config,

@@ -25,8 +25,8 @@ Un frame entra, una decisión sale. Todo el procesamiento ocurre dentro de `proc
 |---|---|---|
 | `reto/camara.py` | Abrir la fuente (webcam, URL del celular, video de archivo), reconectar, entregar frames | Santiago |
 | `reto/pipeline.py` | Orquestar las etapas por frame | Daniel |
-| `reto/linea.py` | Segmentar la línea guía y calcular la desviación | Daniel |
-| `reto/senales.py` | Detectar los octágonos PARE y SIGA | Juan David |
+| `reto/linea.py` | Segmentar la línea guía y calcular la desviación | Juan David |
+| `reto/senales.py` | Detectar los octágonos PARE y SIGA | Daniel |
 | `reto/control.py` | Máquina de estados y decisión de movimiento | Juan David |
 | `reto/overlay.py` | HUD y mosaico de depuración | quien lo necesite |
 | `reto/config.py` | Todos los parámetros y umbrales en un solo lugar | los tres (calibración) |
@@ -50,7 +50,7 @@ decidir(estado, linea, senal, config) -> Decision(accion, giro, razon)
 - **`accion`** es `RECTO`, `IZQUIERDA`, `DERECHA`, `PARAR` o `BUSCAR`.
 - **`razon`** es texto para el HUD y para poder explicar en la sustentación por qué el robot hizo lo que hizo.
 
-Si más adelante hay que mandarle la decisión a un robot físico, se agrega un `reto/actuador.py` que traduzca `Decision` a lo que entienda el hardware. Ningún otro módulo cambia.
+La `Decision` sale por un **actuador** (`reto/actuador.py`): consola, CSV, el simulador de Daniel o, el día que haya carro, el hardware. Cambiar de uno a otro no toca `control.py`. Cómo se prueba cada nivel está en [flujo-de-pruebas.md](flujo-de-pruebas.md).
 
 ## 4. Etapas, con las técnicas que usa cada una
 
@@ -90,7 +90,7 @@ uv run main.py --config config_pista.json
 
 La rúbrica califica que la estrategia se distinga de la de los otros equipos. Estas son las candidatas, en orden de qué tan propias son:
 
-1. **Calibrar los colores con K-Means (clase 4).** En vez de teclear rangos HSV a ojo, se corre K-Means sobre un frame de la pista real: los centroides son los colores dominantes (pista, línea, señales) y de ahí salen los rangos. Casi todos los equipos van a usar K-Means solo para posterizar imágenes, si es que lo usan. Nos deja recalibrar en segundos si el salón cambia de luz el día de la carrera, y es un uso de una técnica vista en clase que hay que defender bien.
+1. **Calibrar los colores con K-Means (clase 4).** *(implementado en `tools/calibrar_kmeans.py`: propone rangos que coinciden con los medidos a mano)* En vez de teclear rangos HSV a ojo, se corre K-Means sobre un frame de la pista real: los centroides son los colores dominantes (pista, línea, señales) y de ahí salen los rangos. Casi todos los equipos van a usar K-Means solo para posterizar imágenes, si es que lo usan. Nos deja recalibrar en segundos si el salón cambia de luz el día de la carrera, y es un uso de una técnica vista en clase que hay que defender bien.
 2. **Control anticipativo con dos franjas.** La franja cercana corrige, la lejana anticipa. Es la diferencia entre un carro que zigzaguea y uno que entra suave a la curva, y se nota en el tiempo de recorrido.
 3. **Validación de señales por color + forma + persistencia + área.** Menos falsos positivos que un simple "si hay rojo, pare".
 4. **Telemetría y grabación de cada corrida.** El HUD y el registro de decisiones alimentan directo el póster y el análisis de resultados, que son dos criterios completos de la rúbrica.
@@ -118,10 +118,12 @@ Hay que elegir entre los tres cuáles entran y poder justificarlas; lo que se de
 
 ## 9. Lo que falta
 
-- [ ] Implementar `linea.detectar` (Daniel)
-- [ ] Implementar `senales.detectar` (Juan David)
+- [x] Implementar `linea.detectar` (Juan David) — 91.1% de detección, 5/5 recuperaciones
+- [x] Implementar `senales.detectar` — versión base, Daniel la revisa y mejora
+- [ ] Decidir si el control exige `es_octagono` cuando la señal se ve de frente
 - [ ] Implementar `control.decidir` (Juan David)
-- [ ] Descargar los videos del profesor a `datos/videos/` y calibrar con ellos
+- [ ] Descargar los videos del profesor a `datos/originales/`, correr `tools/preparar_videos.py` y calibrar con los frames
 - [ ] Decidir qué estrategias de la sección 6 entran
+- [ ] `ActuadorSimulador` para el simulador de Daniel (ver decisión 0003)
 - [ ] Definir cómo se le entrega la decisión al robot (¿hay hardware? ¿serial, HTTP?)
 - [ ] Confirmar con el profesor los segundos exactos de la señal PARE
