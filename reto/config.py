@@ -48,7 +48,7 @@ class Config:
     # tono. Medido en los frames: línea V≈45-90 con S baja, piso V≈200.
     hsv_linea: Rango = ((0, 0, 0), (179, 90, 110))
     area_minima_linea: int = 300
-    ancho_maximo_linea: float = 0.50   # contorno más ancho (fracción de la ROI) = cinta transversal, se ignora
+    ancho_maximo_linea: float = 1.0    # fracción de la ROI; 1.0 = desactivado. Con 0.50 la línea de las curvas de los clips del profesor se descartaba (91.1 % -> 87.6 %)
     kernel_morfologico: int = 3
     iteraciones_apertura: int = 1
     iteraciones_cierre: int = 2
@@ -100,6 +100,28 @@ class Config:
     # no entra en la desviacion hasta poder probarla en lazo cerrado.
     peso_linea_lejana: float = 0.0
     umbral_curvatura: float = 0.15     # diferencia entre franjas para mostrar la curva en el HUD
+
+    # --- Horizonte (linea.mirar_adelante) ----------------------------------
+    # En vez de dos franjas sueltas, la zona delante del robot se corta en
+    # tramos y se encadena el centro de la línea de cerca a lejos. Como cada
+    # tramo sigue al anterior, la parte lejana no se va a otro trozo (que fue
+    # lo que hizo fallar peso_linea_lejana).
+    roi_horizonte: tuple[float, float] = (0.05, 0.58)  # desde arriba hasta el borde del carro
+    tramos_horizonte: int = 8
+    area_minima_tramo: int = 120       # área mínima por tramo (los tramos son más bajos que la ROI)
+    salto_maximo_tramo: float = 0.25   # fracción del ancho; más salto entre tramos = ya no es la línea
+    # En un tramo bajo la línea mide ~0.15-0.30 del ancho aun en curva; la
+    # barra negra de las señales, más de 0.6. Medido en video4, frame 241.
+    ancho_maximo_tramo: float = 0.45
+    margen_borde_horizonte: float = 0.06  # fracción del ancho; la cadena termina pegada al borde = curva cerrada
+    tramo_objetivo: int = 6            # a qué tramo apunta el robot (0 = el más cercano)
+    # Cuánto pesa el punto objetivo frente a la franja cercana. Medido con los
+    # 9 clips (2026-09-29): con 0.5 y tramo 6 el giro apunta al lado correcto
+    # 24 % más frames antes de perder la línea (269 -> 333) sin saltos ni
+    # zigzag. Con 0.7 anticipa más (376), pero gira más en todo el recorrido;
+    # subirlo solo si en lazo cerrado (simulador o pista) el carro se sale en
+    # las curvas. 0 = apagado.
+    peso_horizonte: float = 0.5
     # Promedio de los ultimos N frames de desviacion. Medido: con 3 los
     # saltos bajan de 12 a 4 y el zigzag a la mitad. Con 5 quedan en 0 pero
     # son 167 ms de retraso a 30 fps, y el retraso no se puede medir con
@@ -126,10 +148,12 @@ class Config:
         enteros_positivos = (
             "ancho_proceso", "kernel_gauss", "kernel_morfologico",
             "frames_confirmacion_senal", "frames_para_buscar", "tiempo_limite_camara_ms",
+            "tramos_horizonte",
         )
         enteros_no_negativos = (
             "area_minima_linea", "area_minima_senal", "iteraciones_apertura",
             "iteraciones_cierre", "suavizado_desviacion", "reintentos_camara",
+            "area_minima_tramo", "tramo_objetivo",
         )
         for nombre in enteros_positivos + enteros_no_negativos:
             minimo = 1 if nombre in enteros_positivos else 0
@@ -142,7 +166,8 @@ class Config:
         for nombre in ("segundos_pare", "espera_entre_senales", "ganancia_giro", "pausa_reconexion_s"):
             _validar_numero(nombre, getattr(self, nombre), 0)
         for nombre in ("zona_muerta", "peso_linea_lejana", "circularidad_minima",
-                       "margen_senal_franja"):
+                       "margen_senal_franja", "peso_horizonte", "salto_maximo_tramo",
+                       "margen_borde_horizonte", "ancho_maximo_tramo"):
             _validar_numero(nombre, getattr(self, nombre), 0, 1)
         _validar_numero("umbral_curvatura", self.umbral_curvatura, 0, 2)
         _validar_numero("fps_respaldo", self.fps_respaldo, 0)
@@ -156,7 +181,10 @@ class Config:
             if not isinstance(getattr(self, nombre), bool):
                 raise ValueError(f"{nombre} debe ser true o false")
 
-        for nombre in ("roi_linea_cercana", "roi_linea_lejana", "roi_senal"):
+        if self.tramo_objetivo >= self.tramos_horizonte:
+            raise ValueError("tramo_objetivo debe ser menor que tramos_horizonte")
+
+        for nombre in ("roi_linea_cercana", "roi_linea_lejana", "roi_senal", "roi_horizonte"):
             inicio, fin = _validar_par(nombre, getattr(self, nombre))
             _validar_numero(nombre, inicio, 0, 1)
             _validar_numero(nombre, fin, 0, 1)

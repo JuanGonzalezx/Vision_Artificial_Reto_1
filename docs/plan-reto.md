@@ -107,7 +107,7 @@ Cada requisito tiene un criterio de aceptación **verificable**. "Video1" = `vid
 | RF-05 | M | Calcular el centro de la línea (centroide del contorno principal) y su desviación normalizada | Video1: línea detectada en **≥ 95 %** de los frames. La cinta transversal parte la línea cuando la señal la tapa (frames ~106–125); fuera de esa ventana la desviación no salta más de 0.3 entre frames seguidos, y dentro no más de 0.6 (✅ 2026-09-28: 99.1 %, salto máx. 0.54 en el frame 122; falta celular) |
 | RF-06 | M | El signo de la desviación corresponde al lado de la línea | En `tools/probar_linea.py`: línea sintética a la izquierda da desviación < −0.3, a la derecha > +0.3, al centro \|d\| < 0.1. Espejar la imagen invierte el signo (✅ 2026-09-28: `probar_linea.py` pasa) |
 | RF-07 | M | Reportar "no detectada" si no hay línea o si su área es menor a `area_minima_linea` | ROI en blanco o solo ruido: `detectada = False` y ninguna excepción (✅ 2026-09-28: `probar_linea.py` pasa) |
-| RF-08 | S | Anticipar curvas combinando la franja cercana con la lejana (`peso_linea_lejana`) | Ya implementado en `pipeline.combinar_franjas`. En la curva de los frames 250–300, la desviación combinada empieza a crecer antes que la de la franja cercana sola (✅ implementado; medición fina pendiente) |
+| RF-08 | S | Anticipar curvas con el horizonte: centros de la línea encadenados de cerca a lejos (`linea.mirar_adelante`, `peso_horizonte`). Reemplaza la mezcla suelta con la franja lejana (`peso_linea_lejana`, medida como peor) | En los 5 clips de descarrilamiento el giro apunta al lado correcto más frames antes de perder la línea que sin horizonte, sin subir saltos ni zigzag en `evaluar.py` (✅ 2026-09-29: 269 → 333 frames, 0 saltos, 0 zigzag; falta lazo cerrado, ver decisión 0007) |
 
 ### 5.3 Señales
 
@@ -391,6 +391,7 @@ Al 2026-09-28.
 
 | Fecha | Versión | Cambio |
 |---|---|---|
+| 2026-09-29 | 1.5 | RF-08: horizonte (`linea.mirar_adelante`, `pipeline.anticipar`), parámetros nuevos en `config.py`, HUD y decisión 0007 |
 | 2026-09-28 | 1.4 | T5.6: flujo `--index`, `reto/actuador.py`, `reto/simulador.py`, `configs/simulador.json` |
 | 2026-09-28 | 1.3 | Estado por requisito (RF-04..08, 19, 21), avance de Daniel, cambios compartidos y bloqueos en la sección 14 |
 | 2026-09-28 | 1.2 | F4: `tools/calibrar_clusters.py` (T4.1, T4.2) y decisión 0006 (T4.4). T4.3 queda pendiente hasta tener F3 |
