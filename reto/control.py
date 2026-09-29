@@ -50,9 +50,21 @@ def _orden_de_giro(desviacion: float, config: Config) -> tuple[Accion, float]:
     return accion, giro
 
 
+def es_curva(giro: float, curvatura: float, config: Config) -> bool:
+    """Indica si hay que frenar: la curva ya llegó (giro) o viene en camino (curvatura)."""
+    curva_presente = abs(giro) >= config.giro_para_frenar
+    curva_adelante = abs(curvatura) >= config.curvatura_para_frenar
+    return curva_presente or curva_adelante
+
+
 def decidir(estado: Estado, linea: ResultadoLinea, senal: ResultadoSenal,
-            config: Config, ahora: float | None = None) -> Decision:
-    """Decide la acción de este frame y actualiza la memoria del robot."""
+            config: Config, ahora: float | None = None,
+            curvatura: float = 0.0) -> Decision:
+    """Decide la acción de este frame y actualiza la memoria del robot.
+
+    `curvatura` es la diferencia entre la franja lejana y la cercana: no cambia
+    el rumbo, solo avisa que viene una curva para frenar antes de llegar.
+    """
     ahora = time.monotonic() if ahora is None else ahora
     senal_confirmada = confirmar_senal(estado, senal, config)
 
@@ -89,15 +101,21 @@ def decidir(estado: Estado, linea: ResultadoLinea, senal: ResultadoSenal,
         # La orden debe conservar la ganancia y la zona muerta anteriores.
         accion, giro = _orden_de_giro(estado.ultimo_giro, config)
         return Decision(accion, giro,
-                        f"linea perdida hace {estado.frames_sin_linea} frames: mantengo rumbo")
+                        f"linea perdida hace {estado.frames_sin_linea} frames: mantengo rumbo",
+                        en_curva=es_curva(giro, 0.0, config))
 
-    # 4. Con línea: giro proporcional a la desviación.
+    # 4. Con línea: giro proporcional a la desviación; en curva, además, se frena.
     estado.frames_sin_linea = 0
     estado.estado = EstadoRobot.SIGUIENDO
     estado.ultimo_giro = linea.desviacion
 
     accion, giro = _orden_de_giro(linea.desviacion, config)
-    if accion is Accion.RECTO:
-        return Decision(accion, giro, f"centrado ({linea.desviacion:+.2f})")
+    en_curva = es_curva(giro, curvatura, config)
+    aviso_curva = ", curva: frena" if en_curva else ""
 
-    return Decision(accion, giro, f"desviacion {linea.desviacion:+.2f}")
+    if accion is Accion.RECTO:
+        return Decision(accion, giro, f"centrado ({linea.desviacion:+.2f}){aviso_curva}",
+                        en_curva=en_curva)
+
+    return Decision(accion, giro, f"desviacion {linea.desviacion:+.2f}{aviso_curva}",
+                    en_curva=en_curva)

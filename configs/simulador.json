@@ -1,6 +1,7 @@
 {
-  "roi_linea_cercana": [0.60, 0.88],
-  "roi_linea_lejana": [0.35, 0.60],
-  "roi_senal": [0.0, 0.88],
-  "hsv_linea": [[0, 0, 0], [179, 255, 60]]
+  "rotacion": 0,
+  "roi_linea_cercana": [0.30, 0.50],
+  "roi_linea_lejana": [0.10, 0.30],
+  "roi_senal": [0.0, 0.50],
+  "hsv_linea": [[0, 0, 0], [179, 90, 110]]
 }

@@ -90,12 +90,6 @@ def procesar_frame(frame, estado: Estado, config: Config,
 
     linea = combinar_franjas(linea, linea_lejana, config, desplazamiento)
 
-    # Horizonte: el camino encadenado de cerca a lejos, anclado a la línea que
-    # se sigue. Anticipa la curva antes de que llegue a la franja cercana.
-    ancla = linea.centro_x if linea.detectada else estado.ultimo_centro_linea
-    horizonte = modulo_linea.mirar_adelante(preparado, config, ancla)
-    linea = anticipar(linea, horizonte, config)
-
     # La señal va sobre una barra negra que cruza la pista: cuando llega a la
     # franja de la línea, la barra entra en la máscara y mueve el centroide.
     # Mientras la tape, se mantiene el rumbo que se traía (ver config).
@@ -112,21 +106,18 @@ def procesar_frame(frame, estado: Estado, config: Config,
         estado.ultima_desviacion_limpia = linea.desviacion
 
     linea = suavizar(linea, estado, config)
-    decision = decidir(estado, linea, senal, config, ahora)
 
-    # Curvatura: positiva, la pista se va a la derecha más adelante. Sale del
-    # horizonte si la cadena alcanzó a formarse; si no, de las dos franjas.
-    if horizonte.detectado:
-        curvatura = horizonte.curvatura
-    else:
-        curvatura = (linea_lejana.desviacion - linea.desviacion
-                     if linea.detectada and linea_lejana.detectada else 0.0)
+    # Curvatura: positiva, la pista se va a la derecha más adelante (diferencia
+    # entre las dos franjas). El control la usa para frenar antes de la curva.
+    curvatura = (linea_lejana.desviacion - linea.desviacion
+                 if linea.detectada and linea_lejana.detectada else 0.0)
+
+    decision = decidir(estado, linea, senal, config, ahora, curvatura)
 
     depuracion = {
         "frame": preparado,
         "linea": linea,
         "linea_lejana": linea_lejana,
-        "horizonte": horizonte,
         "curvatura": curvatura,
         "linea_congelada": congelada,
         "senal": senal,
@@ -165,21 +156,6 @@ def suavizar(linea: ResultadoLinea, estado: Estado, config: Config) -> Resultado
     del estado.ultimas_desviaciones[:-config.suavizado_desviacion]
     promedio = sum(estado.ultimas_desviaciones) / len(estado.ultimas_desviaciones)
     return ResultadoLinea(True, linea.centro_x, promedio, linea.area, linea.mascara)
-
-
-def anticipar(linea: ResultadoLinea, horizonte: modulo_linea.Horizonte,
-              config: Config) -> ResultadoLinea:
-    """Mezcla dónde está la línea ahora con dónde va a estar (el punto objetivo).
-
-    Es un promedio ponderado (operaciones aritméticas, clase 2):
-    d = (1 - peso) * d_cercana + peso * d_objetivo.
-    """
-    if not linea.detectada or not horizonte.detectado or config.peso_horizonte <= 0:
-        return linea
-
-    peso = config.peso_horizonte
-    desviacion = (1 - peso) * linea.desviacion + peso * horizonte.desviacion_objetivo
-    return ResultadoLinea(True, linea.centro_x, desviacion, linea.area, linea.mascara)
 
 
 def combinar_franjas(cercana: ResultadoLinea, lejana: ResultadoLinea, config: Config,

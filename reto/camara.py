@@ -15,6 +15,7 @@ notebook 1 (Fundamentación): leer imágenes, manipularlas y mostrarlas.
 
 from __future__ import annotations
 
+import threading
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import cv2
@@ -100,4 +101,69 @@ def abrir_camara(
         )
 
     return captura
+
+
+class LectorReciente:
+    """Lee la cámara en un hilo y entrega siempre el frame más nuevo.
+
+    El buffer de FFmpeg en streams de red suele ignorar `CAP_PROP_BUFFERSIZE`,
+    y si el procesamiento va más lento que la cámara se leen frames cada vez
+    más viejos. Aquí un hilo lee sin parar y solo guarda el último; `read()`
+    espera un frame que no se haya entregado y descarta los intermedios.
+    """
+
+    def __init__(self, captura: cv2.VideoCapture, espera_s: float = 5.0) -> None:
+        self._captura = captura
+        self._espera_s = espera_s
+        self._condicion = threading.Condition()
+        self._frame = None
+        self._hay_frame_nuevo = False
+        self._terminado = False
+        self._detener = threading.Event()
+        self._hilo = threading.Thread(target=self._leer, daemon=True)
+        self._hilo.start()
+
+    def _leer(self) -> None:
+        while not self._detener.is_set():
+            ok, frame = self._captura.read()
+            with self._condicion:
+                if ok and frame is not None:
+                    self._frame = frame
+                    self._hay_frame_nuevo = True
+                else:
+                    # Sin imagen: el consumidor decide si reconecta.
+                    self._terminado = True
+                self._condicion.notify_all()
+            if self._terminado:
+                return
+
+    def read(self):
+        """Mismo contrato que `VideoCapture.read()`: (ok, frame)."""
+        with self._condicion:
+            self._condicion.wait_for(
+                lambda: self._hay_frame_nuevo or self._terminado, self._espera_s)
+            if not self._hay_frame_nuevo:
+                return False, None
+            self._hay_frame_nuevo = False
+            return True, self._frame
+
+    def get(self, propiedad: int) -> float:
+        return self._captura.get(propiedad)
+
+    def isOpened(self) -> bool:
+        return self._captura.isOpened()
+
+    def release(self) -> None:
+        # Se espera al hilo antes de liberar: soltar la captura en plena lectura no es seguro.
+        self._detener.set()
+        self._hilo.join(timeout=self._espera_s)
+        self._captura.release()
+
+
+def con_frame_reciente(captura, fuente: str | int, config: Config | None = None):
+    """Envuelve las fuentes de red en `LectorReciente`; archivos y webcam pasan igual."""
+    if not es_fuente_red(fuente):
+        return captura
+    config = config or Config()
+    return LectorReciente(captura, espera_s=config.tiempo_limite_camara_ms / 1000 + 1.0)
 

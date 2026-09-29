@@ -32,8 +32,8 @@ from reto.pipeline import procesar_frame  # noqa: E402
 from reto.tipos import Accion, Estado  # noqa: E402
 
 COLUMNAS = ["clip", "frames", "duracion_s", "linea_%", "desviacion_media", "saltos_por_s",
-            "zigzag_por_s", "pare", "siga", "area_max_senal", "busca_izq", "busca_der",
-            "fps_proceso"]
+            "zigzag_por_s", "curva_%", "pare", "siga", "area_max_senal", "busca_izq",
+            "busca_der", "fps_proceso"]
 
 # Un salto de desviación más grande que esto entre dos frames seguidos no lo
 # puede producir el carro moviéndose: es que la detección se fue a otra cosa
@@ -53,7 +53,7 @@ def evaluar_clip(ruta: Path, config: Config) -> dict:
     estado = Estado()
 
     frames = con_linea = cambios_de_giro = saltos = 0
-    pare = siga = busca_izq = busca_der = 0
+    pare = siga = busca_izq = busca_der = en_curva = 0
     suma_desviacion = 0.0
     desviacion_anterior = None
     area_max = 0.0
@@ -93,6 +93,11 @@ def evaluar_clip(ruta: Path, config: Config) -> dict:
 
             area_max = max(area_max, senal.area)
 
+            # Frames en que el actuador frenaría: sirve para calibrar los umbrales
+            # de curva (si da casi 100 %, el robot va lento en todo el recorrido).
+            if decision.en_curva:
+                en_curva += 1
+
             if decision.accion is Accion.BUSCAR:
                 if decision.giro < 0:
                     busca_izq += 1
@@ -128,6 +133,7 @@ def evaluar_clip(ruta: Path, config: Config) -> dict:
         "desviacion_media": round(suma_desviacion / con_linea, 3) if con_linea else 0.0,
         "saltos_por_s": round(saltos / duracion, 2) if duracion else 0.0,
         "zigzag_por_s": round(cambios_de_giro / duracion, 2) if duracion else 0.0,
+        "curva_%": round(100 * en_curva / frames, 1) if frames else 0.0,
         "pare": pare,
         "siga": siga,
         "area_max_senal": round(area_max),

@@ -3,6 +3,8 @@
 import argparse
 import csv
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -14,8 +16,9 @@ import main
 from reto.Robot import Robot
 from reto.Robot_mac import RobotMac
 from reto.actuador import ActuadorRegistro
-from reto.actuador_robot import ActuadorRobot, RobotSimulado, crear_robot
-from reto.camara import agregar_credenciales, abrir_camara, describir_fuente, es_fuente_archivo
+from reto.actuador_robot import ActuadorEnHilo, ActuadorRobot, RobotSimulado, crear_robot
+from reto.camara import (LectorReciente, agregar_credenciales, abrir_camara, con_frame_reciente,
+                         describir_fuente, es_fuente_archivo)
 from reto.config import Config
 from reto.overlay import mosaico
 from reto.tipos import Accion, Decision, ResultadoSenal
@@ -204,6 +207,72 @@ class PruebasActuadorRobot(unittest.TestCase):
         self.assertEqual(actuador.acciones_para(Decision(Accion.DERECHA, 0.6)), [robot.adelante])
         # el acumulado pasa de 1: sale el pulso de giro
         self.assertEqual(actuador.acciones_para(Decision(Accion.DERECHA, 0.6)), [robot.derecha])
+
+    def test_en_curva_se_manda_solo_una_parte_de_los_avances(self):
+        robot = Mock()
+        actuador = ActuadorRobot(robot, ritmo_hz=1e9, avance_en_curva=0.5)
+        en_curva = Decision(Accion.RECTO, en_curva=True)
+        # con 0.5 se avanza un tick sí y otro no
+        self.assertEqual(actuador.acciones_para(en_curva), [])
+        self.assertEqual(actuador.acciones_para(en_curva), [robot.adelante])
+        self.assertEqual(actuador.acciones_para(en_curva), [])
+        # fuera de la curva vuelve a avanzar siempre
+        self.assertEqual(actuador.acciones_para(Decision(Accion.RECTO)), [robot.adelante])
+        # un giro suave en curva tampoco avanza en todos los ticks
+        self.assertEqual(actuador.acciones_para(Decision(Accion.DERECHA, 0.6, en_curva=True)), [])
+        self.assertEqual(actuador.acciones_para(Decision(Accion.DERECHA, 0.6, en_curva=True)),
+                         [robot.derecha])
+
+
+class PruebasLatencia(unittest.TestCase):
+    """Ni el robot ni el buffer de la cámara deben frenar o atrasar la visión."""
+
+    def test_aplicar_no_espera_al_robot_lento(self):
+        liberar = threading.Event()
+        lento = Mock()
+        lento.aplicar.side_effect = lambda *_: liberar.wait(2)
+        actuador = ActuadorEnHilo(lento)
+        inicio = time.monotonic()
+        for _ in range(50):
+            actuador.aplicar(Decision(Accion.RECTO))
+        self.assertLess(time.monotonic() - inicio, 0.5)
+        liberar.set()
+        actuador.cerrar()
+        lento.cerrar.assert_called_once()
+
+    def test_solo_llega_la_ultima_decision_y_el_parar_final(self):
+        recibidas = []
+        liberar = threading.Event()
+        interno = Mock()
+        interno.aplicar.side_effect = lambda d, c=None: (recibidas.append(d.accion), liberar.wait(2))
+        actuador = ActuadorEnHilo(interno)
+        actuador.aplicar(Decision(Accion.RECTO))
+        while not recibidas:
+            time.sleep(0.01)
+        actuador.aplicar(Decision(Accion.DERECHA, 0.5))
+        actuador.aplicar(Decision(Accion.IZQUIERDA, 0.5))
+        actuador.aplicar(Decision(Accion.PARAR))
+        liberar.set()
+        actuador.cerrar()
+        self.assertEqual(recibidas, [Accion.RECTO, Accion.PARAR])
+
+    def test_lector_reciente_descarta_frames_intermedios(self):
+        frames = [np.full((2, 2, 3), i, np.uint8) for i in range(5)]
+        captura = Mock()
+        captura.read.side_effect = [(True, f) for f in frames] + [(False, None)]
+        lector = LectorReciente(captura, espera_s=1.0)
+        lector._hilo.join(1)
+        ok, frame = lector.read()
+        self.assertTrue(ok)
+        self.assertEqual(frame[0, 0, 0], 4)
+        self.assertEqual(lector.read(), (False, None))
+        lector.release()
+        captura.release.assert_called_once()
+
+    def test_solo_las_fuentes_de_red_usan_lector(self):
+        captura = Mock()
+        self.assertIs(con_frame_reciente(captura, "clip.mp4"), captura)
+        self.assertIs(con_frame_reciente(captura, "0"), captura)
 
 
 if __name__ == "__main__":

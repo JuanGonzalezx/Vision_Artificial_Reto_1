@@ -24,8 +24,8 @@ from pathlib import Path
 import cv2
 
 from reto.actuador import ActuadorConsola, ActuadorMultiple, ActuadorRegistro
-from reto.actuador_robot import ActuadorRobot, crear_robot
-from reto.camara import abrir_camara, describir_fuente, es_fuente_archivo
+from reto.actuador_robot import ActuadorEnHilo, ActuadorRobot, crear_robot
+from reto.camara import abrir_camara, con_frame_reciente, describir_fuente, es_fuente_archivo
 from reto.config import Config
 from reto.overlay import accion_en_grande, dibujar, mosaico
 from reto.pipeline import procesar_frame
@@ -88,19 +88,22 @@ def parsear_argumentos() -> argparse.Namespace:
     return argumentos
 
 
-def crear_actuador(argumentos: argparse.Namespace, marca: str, simulador=None) -> ActuadorMultiple:
+def crear_actuador(argumentos: argparse.Namespace, marca: str, config: Config,
+                   simulador=None) -> ActuadorMultiple:
     """El mismo contrato sirve para consola, CSV y el robot real."""
     consola = ActuadorConsola() if argumentos.consola else None
     registro = ActuadorRegistro(GRABACIONES / f"{marca}_decisiones.csv") if argumentos.grabar else None
     robot = None
 
     if argumentos.robot_simulado or argumentos.robot_mac or argumentos.robot_puerto:
-        robot = ActuadorRobot(
+        # En hilo aparte: el robot duerme 100 ms por comando y no debe frenar la visión.
+        robot = ActuadorEnHilo(ActuadorRobot(
             crear_robot(mac=argumentos.robot_mac, puerto=argumentos.robot_puerto,
                         simulado=argumentos.robot_simulado),
             ritmo_hz=argumentos.robot_ritmo,
             avanzar_al_girar=argumentos.robot_avanzar_al_girar,
-        )
+            avance_en_curva=config.avance_en_curva,
+        ))
 
     return ActuadorMultiple(consola, registro, robot, simulador)
 
@@ -119,8 +122,10 @@ def reconectar(argumentos, config: Config):
         captura = None
         recuperada = False
         try:
-            captura = abrir_camara(argumentos.fuente, argumentos.usuario,
-                                   argumentos.contrasena, config)
+            captura = con_frame_reciente(
+                abrir_camara(argumentos.fuente, argumentos.usuario,
+                             argumentos.contrasena, config),
+                argumentos.fuente, config)
             ok, frame = captura.read()
             if ok and frame is not None:
                 recuperada = True
@@ -167,12 +172,14 @@ def ejecutar(argumentos, config: Config) -> int:
             captura = simulador = PuenteSimulador()
             print(f"Simulador en {simulador.url} (si no se abre solo, pegalo en el navegador)")
         else:
-            captura = abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena, config)
+            captura = con_frame_reciente(
+                abrir_camara(argumentos.fuente, argumentos.usuario, argumentos.contrasena, config),
+                argumentos.fuente, config)
         fps_fuente = fps_de_fuente(captura, config)
         # Un video con --bucle se reproduce a su velocidad real, para que los segundos
         # del PARE y las esperas del control se comporten como en la pista.
         espera_ms = int(1000 / fps_fuente) if es_archivo and argumentos.bucle else 1
-        actuador = crear_actuador(argumentos, marca, simulador)
+        actuador = crear_actuador(argumentos, marca, config, simulador)
         inicio = time.monotonic()
         while True:
             ok, frame = captura.read()
@@ -209,8 +216,7 @@ def ejecutar(argumentos, config: Config) -> int:
             if argumentos.grabar or not argumentos.sin_ventana:
                 vista = dibujar(depuracion["frame"], depuracion["linea"], depuracion["senal"],
                                 decision, estado, config, fps_proceso, depuracion["curvatura"],
-                                depuracion.get("linea_congelada", False),
-                                depuracion.get("horizonte"))
+                                depuracion.get("linea_congelada", False))
                 if argumentos.grande:
                     vista = accion_en_grande(vista, decision)
                 if argumentos.grabar:

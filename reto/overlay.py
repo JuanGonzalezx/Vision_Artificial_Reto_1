@@ -30,13 +30,10 @@ def franja_a_pixeles(alto: int, franja: tuple[float, float]) -> tuple[int, int]:
 
 def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decision,
             estado: Estado, config: Config, fps: float = 0.0, curvatura: float = 0.0,
-            congelada: bool = False, horizonte=None):
+            congelada: bool = False):
     """Devuelve una copia del frame con la información encima."""
     salida = frame.copy()
     alto, ancho = salida.shape[:2]
-
-    if horizonte is not None and horizonte.detectado:
-        _dibujar_horizonte(salida, horizonte, config)
 
     # ROI de la línea y ROI de las señales.
     y1, y2 = franja_a_pixeles(alto, config.roi_linea_cercana)
@@ -72,18 +69,6 @@ def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decis
     _texto(salida, f"giro {decision.giro:+.2f} | FPS {fps:.1f}", 10, alto - 12, AMARILLO, 0.55)
 
     return salida
-
-
-def _dibujar_horizonte(imagen, horizonte, config: Config) -> None:
-    """Cadena de centros de cerca a lejos y el punto al que apunta el robot."""
-    puntos = np.array(horizonte.puntos, np.int32)
-    cv2.polylines(imagen, [puntos], False, VERDE, 2)
-    for punto in horizonte.puntos:
-        cv2.circle(imagen, punto, 4, VERDE, -1)
-
-    objetivo = horizonte.puntos[min(config.tramo_objetivo, len(horizonte.puntos) - 1)]
-    color = ROJO if horizonte.sale_por else AMARILLO
-    cv2.circle(imagen, objetivo, 9, color, 2)
 
 
 def accion_en_grande(imagen, decision: Decision):

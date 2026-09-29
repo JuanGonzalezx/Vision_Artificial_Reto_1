@@ -29,14 +29,14 @@ def escena(con_senal: bool) -> np.ndarray:
     imagen = np.full((ALTO, ANCHO, 3), 210, np.uint8)
     cv2.rectangle(imagen, (230, 0), (260, ALTO), (30, 30, 30), -1)  # línea
     if con_senal:
-        cv2.rectangle(imagen, (40, 250), (470, 275), (30, 30, 30), -1)  # barra negra
-        cv2.rectangle(imagen, (300, 220), (380, 300), (60, 150, 40), -1)  # señal verde (H≈65)
+        cv2.rectangle(imagen, (40, 185), (470, 210), (30, 30, 30), -1)  # barra negra
+        cv2.rectangle(imagen, (300, 160), (380, 235), (60, 150, 40), -1)  # señal verde (H≈65)
     return imagen
 
 
 class PruebasSenalSobreFranja(unittest.TestCase):
     def setUp(self):
-        self.config = Config()  # franja cercana: 0.40-0.58 del alto -> filas 192-278
+        self.config = Config()  # franja cercana: 0.30-0.50 del alto -> filas 144-240
 
     def test_sin_senal_no_tapa(self):
         self.assertFalse(senal_sobre_franja(ResultadoSenal(), 0, ALTO, self.config))
@@ -46,7 +46,7 @@ class PruebasSenalSobreFranja(unittest.TestCase):
         self.assertFalse(senal_sobre_franja(senal, 0, ALTO, self.config))
 
     def test_senal_dentro_de_la_franja_tapa(self):
-        senal = ResultadoSenal(tipo="PARE", area=3600, contorno=cuadro(210))
+        senal = ResultadoSenal(tipo="PARE", area=3600, contorno=cuadro(150))
         self.assertTrue(senal_sobre_franja(senal, 0, ALTO, self.config))
 
 
@@ -56,7 +56,7 @@ class PruebasCongelarRumbo(unittest.TestCase):
         resultados = {}
 
         for congelar in (False, True):
-            config = Config()
+            config = Config(rotacion=0)  # la escena ya está de frente
             config.congelar_con_senal = congelar
             config.area_minima_senal = 1000
             estado = Estado()

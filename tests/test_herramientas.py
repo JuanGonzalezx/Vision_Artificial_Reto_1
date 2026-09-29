@@ -72,7 +72,7 @@ class CalibracionTest(unittest.TestCase):
     def test_guardar_sin_mover_barras_conserva_ambas_franjas(self):
         config = Config()
         valores = {"bajo": config.hsv_linea[0], "alto": config.hsv_linea[1],
-                   "roi": (0.18, 0.58), "apertura": 1, "cierre": 2}
+                   "roi": (0.10, 0.50), "apertura": 1, "cierre": 2}
         with tempfile.TemporaryDirectory() as carpeta:
             ruta = Path(carpeta) / "config.json"
             calibrar.guardar(config, "linea", valores, ruta)
@@ -86,7 +86,7 @@ class CalibracionTest(unittest.TestCase):
                           side_effect=lambda nombre, _ventana, valor: posiciones.update({nombre: valor})):
             calibrar.cargar_modo(Config(), "rojo_alto")
         self.assertEqual(posiciones["ROI arriba %"], 0)
-        self.assertEqual(posiciones["ROI abajo %"], 55)
+        self.assertEqual(posiciones["ROI abajo %"], 50)
         self.assertEqual(posiciones["H min"], 165)
 
     def test_roi_no_sale_del_frame_y_hsv_no_se_invierte(self):

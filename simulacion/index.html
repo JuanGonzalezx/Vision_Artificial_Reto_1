@@ -261,18 +261,18 @@
   const W = canvas.width, H = canvas.height;
   const ROAD_W = 46;
 
-  // ---- piso de baldosa de piedra gris: variación por baldosa + juntas + luz despareja + grano ----
+  // ---- piso claro como el de la pista real: baldosa casi blanca, juntas suaves, luz despareja + grano ----
   function buildFloorTexture(){
     const c = document.createElement('canvas'); c.width=W; c.height=H;
     const g = c.getContext('2d');
-    const TILE = 58, GROUT = 3;
+    const TILE = 120, GROUT = 1;
 
-    g.fillStyle = '#7d8083';
+    g.fillStyle = '#c9cbcd';
     g.fillRect(0,0,W,H);
 
     for(let ty=-TILE; ty<H+TILE; ty+=TILE){
       for(let tx=-TILE; tx<W+TILE; tx+=TILE){
-        const base = 118 + Math.floor((Math.random()-0.5)*28);
+        const base = 214 + Math.floor((Math.random()-0.5)*12);
         g.fillStyle = `rgb(${base},${base+2},${base+3})`;
         g.fillRect(tx+GROUT, ty+GROUT, TILE-GROUT*2, TILE-GROUT*2);
 
@@ -282,7 +282,7 @@
           const r = 4+Math.random()*11;
           const rg = g.createRadialGradient(sx,sy,0,sx,sy,r);
           const dark = Math.random()<0.55;
-          rg.addColorStop(0, dark?'rgba(60,58,56,0.16)':'rgba(255,255,255,0.14)');
+          rg.addColorStop(0, dark?'rgba(60,58,56,0.06)':'rgba(255,255,255,0.10)');
           rg.addColorStop(1, 'rgba(0,0,0,0)');
           g.fillStyle = rg;
           g.fillRect(tx+GROUT, ty+GROUT, TILE-GROUT*2, TILE-GROUT*2);
@@ -316,7 +316,7 @@
     const g = c.getContext('2d');
     const vg = g.createRadialGradient(W/2,H*0.42,H*0.22, W/2,H*0.5,H*0.72);
     vg.addColorStop(0,'rgba(20,18,14,0)');
-    vg.addColorStop(1,'rgba(20,18,14,0.24)');
+    vg.addColorStop(1,'rgba(20,18,14,0.12)');
     g.fillStyle=vg; g.fillRect(0,0,W,H);
     return c;
   }
@@ -548,8 +548,10 @@
     greenInZone = nowInGreen;
   }
 
-  // ---- first-person (downward, slightly forward-tilted) camera ----
-  const CAM = { anchorX: 240, anchorY: 850, baseScale: 6.2, tilt: 0.0011 };
+  // ---- cámara como la del celular real: montada detrás y encima del robot, mirando adelante y abajo ----
+  // El robot tapa el ~48 % inferior del cuadro (captura del 29/09) y la pista se ve ARRIBA.
+  // anchorY es donde cae el punto del carro (debajo de los sensores); tilt da la perspectiva.
+  const CAM = { anchorX: 240, anchorY: H*0.585, baseScale: 5.2, tilt: 0.003 };
   function camScale(v){ return CAM.baseScale / (1 + Math.max(v,-90)*CAM.tilt); }
   function proj(px,py){
     const dx = px-car.x, dy = py-car.y;
@@ -561,7 +563,7 @@
     return { x: CAM.anchorX + u*s, y: CAM.anchorY - v*s, s, v };
   }
   function windowIndices(){
-    const behind=0, ahead=36;
+    const behind=6, ahead=36;
     const idxs=[];
     for(let k=-behind;k<=ahead;k++) idxs.push(((lastIdx+k)%L+L)%L);
     return idxs;
@@ -569,7 +571,7 @@
   const normals = track.map((p,i)=>{ const t=tangentAt(i); return [-t[1],t[0]]; });
   const leftEdge = track.map((p,i)=>[p[0]+normals[i][0]*ROAD_W/2, p[1]+normals[i][1]*ROAD_W/2]);
   const rightEdge = track.map((p,i)=>[p[0]-normals[i][0]*ROAD_W/2, p[1]-normals[i][1]*ROAD_W/2]);
-  const LINE_HW = 3;
+  const LINE_HW = 5;   // cinta gris ancha, como la de la pista real
   const lineLeft = track.map((p,i)=>[p[0]+normals[i][0]*LINE_HW, p[1]+normals[i][1]*LINE_HW]);
   const lineRight = track.map((p,i)=>[p[0]-normals[i][0]*LINE_HW, p[1]-normals[i][1]*LINE_HW]);
 
@@ -585,20 +587,11 @@
   function drawGround(idxs){
     for(let k=idxs.length-2; k>=0; k--){
       const i=idxs[k], j=idxs[k+1];
-      const roadNear = Math.max(0.25, Math.min(1, (proj(track[i][0],track[i][1]).s)/CAM.baseScale));
-      const L0=proj(leftEdge[i][0],leftEdge[i][1]), R0=proj(rightEdge[i][0],rightEdge[i][1]);
-      const L1=proj(leftEdge[j][0],leftEdge[j][1]), R1=proj(rightEdge[j][0],rightEdge[j][1]);
+      const roadNear = 1;
       const LL0=proj(lineLeft[i][0],lineLeft[i][1]), LR0=proj(lineRight[i][0],lineRight[i][1]);
       const LL1=proj(lineLeft[j][0],lineLeft[j][1]), LR1=proj(lineRight[j][0],lineRight[j][1]);
-      fillQuad(LL0,LR0,LR1,LL1, '#0a0a0a', roadNear);
-
-      if(k%4===0){
-        ctx.globalAlpha = roadNear;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(LL0.x,LL0.y); ctx.lineTo(LR0.x,LR0.y); ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
+      // Cinta gris oscura (V≈70, S baja), con bandas apenas más oscuras para notar el avance.
+      fillQuad(LL0,LR0,LR1,LL1, k%4===0 ? '#3f4043' : '#4a4b4e', 1);
 
       if(i===0 || j===0){
         const idx0 = i===0?i:j;
@@ -649,33 +642,58 @@
     ctx.restore();
   }
 
+  // mBot visto desde el celular: fijo en la mitad inferior del cuadro, como en la cámara real.
+  // Se dibuja en las coordenadas de la captura real (596x1082) y se escala al canvas.
   function drawCar(){
     ctx.save();
-    ctx.translate(CAM.anchorX, CAM.anchorY);
-    ctx.rotate(-Math.PI/2);
-    ctx.scale(CAM.baseScale/1.2, CAM.baseScale/1.2);
-    ctx.fillStyle = '#12161b';
-    ctx.beginPath();
-    ctx.ellipse(0,0,15,16,0,0,Math.PI*2);
-    ctx.fill();
+    ctx.scale(W/596, H/1082);
 
-    ctx.fillStyle = '#178f80';
-    ctx.strokeStyle = '#0c5951';
-    ctx.lineWidth = 1.5;
-    roundRect(-12,-13,24,26,5);
-    ctx.fill(); ctx.stroke();
+    // ruedas (se asoman a los lados, abajo)
+    ctx.fillStyle = '#16181b';
+    roundRect(-10,820,95,262,28); ctx.fill();
+    roundRect(452,790,120,220,30); ctx.fill();
+    ctx.fillStyle = '#2a2d31';
+    roundRect(20,850,30,200,12); ctx.fill();
+    roundRect(480,820,40,160,14); ctx.fill();
 
-    ctx.fillStyle = '#d7dadd';
-    ctx.beginPath(); ctx.arc(7,-9,3.2,0,Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.arc(7,9,3.2,0,Math.PI*2); ctx.fill();
+    // orejas azules del chasis
+    ctx.fillStyle = '#2bb3d8';
+    roundRect(100,552,40,95,14); ctx.fill();
+    roundRect(418,548,34,95,14); ctx.fill();
 
-    ctx.fillStyle = '#e8b93d';
-    ctx.fillRect(-3,-2.5,6,5);
+    // placa del sensor ultrasónico y sus dos cilindros plateados
+    ctx.fillStyle = '#22262b';
+    ctx.fillRect(140,596,248,44);
+    for(const x0 of [168,302]){
+      const cg = ctx.createLinearGradient(x0,0,x0+78,0);
+      cg.addColorStop(0,'#8e9398'); cg.addColorStop(0.35,'#e4e7ea'); cg.addColorStop(1,'#7c8186');
+      ctx.fillStyle = cg;
+      roundRect(x0,588,78,52,6); ctx.fill();
+    }
 
-    ctx.fillStyle = '#f4f6f8';
-    ctx.beginPath();
-    ctx.moveTo(14,0); ctx.lineTo(6,-8); ctx.lineTo(6,8);
-    ctx.closePath(); ctx.fill();
+    // chasis azul
+    ctx.fillStyle = '#1e9fd0';
+    roundRect(96,628,362,80,10); ctx.fill();
+    ctx.fillStyle = '#1784b0';
+    ctx.fillRect(96,690,362,18);
+
+    // portapilas transparente
+    ctx.fillStyle = '#b9bcc0';
+    roundRect(70,690,400,392,26); ctx.fill();
+    ctx.fillStyle = '#2b2e33';
+    roundRect(88,728,364,354,14); ctx.fill();
+
+    // cuatro pilas AA: puntas naranja, cuerpo verde
+    for(const x0 of [96,176,256,336]){
+      const pg = ctx.createLinearGradient(0,742,0,1062);
+      pg.addColorStop(0,'#e8871e'); pg.addColorStop(0.22,'#f0c23a');
+      pg.addColorStop(0.3,'#4fae3c'); pg.addColorStop(0.75,'#3d9a33');
+      pg.addColorStop(0.85,'#f0c23a'); pg.addColorStop(1,'#e8871e');
+      ctx.fillStyle = pg;
+      roundRect(x0,742,72,320,30); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      roundRect(x0+10,752,14,300,7); ctx.fill();
+    }
     ctx.restore();
   }
 

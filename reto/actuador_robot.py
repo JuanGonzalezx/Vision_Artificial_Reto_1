@@ -34,6 +34,7 @@ hardware).
 from __future__ import annotations
 
 import socket
+import threading
 import time
 
 from .Robot import Robot
@@ -99,27 +100,50 @@ class ActuadorRobot:
             bloquea 100 ms en cada `w`, así que subir de 10 solo acumula retraso.
         avanzar_al_girar: si es True, después de un pulso de giro también se
             manda `w`. Hace el recorrido más rápido pero las curvas más abiertas.
+        avance_en_curva: fracción de los `w` que se mandan cuando la decisión
+            viene marcada `en_curva` (config.avance_en_curva). 1.0 = no frena.
     """
 
     def __init__(self, robot, ritmo_hz: float = 10.0,
-                 avanzar_al_girar: bool = False) -> None:
+                 avanzar_al_girar: bool = False, avance_en_curva: float = 1.0) -> None:
         self.robot = robot
         self.intervalo = 1.0 / ritmo_hz if ritmo_hz > 0 else 0.0
         self.avanzar_al_girar = avanzar_al_girar
+        self.avance_en_curva = avance_en_curva
         self.acumulado_de_giro = 0.0
+        self.acumulado_de_avance = 0.0
         self._ultimo_envio = 0.0
         self._detenido = False
         robot.conectar()
+
+    def _avanzar(self, decision: Decision) -> list:
+        """Un pulso `w`, o ninguno si en curva toca frenar.
+
+        Mismo reparto que el giro: en curva se acumula `avance_en_curva` y solo
+        se avanza cuando el acumulado pasa de 1. En los ticks sin `w` el robot
+        se queda quieto (los pulsos paran solos) y el giro alcanza a corregir.
+        """
+        if not decision.en_curva:
+            self.acumulado_de_avance = 0.0
+            return [self.robot.adelante]
+
+        self.acumulado_de_avance += self.avance_en_curva
+        if self.acumulado_de_avance < 1.0:
+            return []
+
+        self.acumulado_de_avance -= 1.0
+        return [self.robot.adelante]
 
     def acciones_para(self, decision: Decision) -> list:
         """Verbos del robot a llamar en este tick. Sin efectos: fácil de probar."""
         if decision.accion is Accion.PARAR:
             self.acumulado_de_giro = 0.0
+            self.acumulado_de_avance = 0.0
             return [self.robot.parar]
 
         if decision.accion is Accion.RECTO:
             self.acumulado_de_giro = 0.0
-            return [self.robot.adelante]
+            return self._avanzar(decision)
 
         # Giro proporcional repartido en pulsos: se acumula la magnitud del giro
         # y se gasta un pulso cada vez que el acumulado pasa de 1.
@@ -128,7 +152,7 @@ class ActuadorRobot:
         if self.acumulado_de_giro < 1.0:
             # Todavía no toca girar: se sigue avanzando, salvo que estemos
             # buscando la línea, donde avanzar a ciegas es peor.
-            return [] if decision.accion is Accion.BUSCAR else [self.robot.adelante]
+            return [] if decision.accion is Accion.BUSCAR else self._avanzar(decision)
 
         self.acumulado_de_giro -= 1.0
         girar = self.robot.derecha if decision.giro > 0 else self.robot.izquierda
@@ -136,7 +160,7 @@ class ActuadorRobot:
         if decision.accion is Accion.BUSCAR:
             return [girar]
 
-        return [girar, self.robot.adelante] if self.avanzar_al_girar else [girar]
+        return [girar, *self._avanzar(decision)] if self.avanzar_al_girar else [girar]
 
     def aplicar(self, decision: Decision, contexto: dict | None = None) -> None:
         ahora = time.monotonic()
@@ -161,3 +185,51 @@ class ActuadorRobot:
             pass
 
         self.robot.cerrar()
+
+
+class ActuadorEnHilo:
+    """Envuelve un actuador para que sus envíos no frenen la visión.
+
+    `Robot` duerme 100 ms tras cada carácter; si eso ocurre en el hilo de la
+    visión, los fps caen a ~10 y las decisiones salen de imágenes viejas. Aquí
+    `aplicar` solo deja la decisión en un casillero de tamaño 1 (la nueva pisa
+    a la anterior) y un hilo aparte la manda al actuador real a su ritmo.
+    """
+
+    ESPERA_CIERRE_S = 3.0
+
+    def __init__(self, actuador) -> None:
+        self.actuador = actuador
+        self._condicion = threading.Condition()
+        self._pendiente = None
+        self._cerrado = False
+        self._hilo = threading.Thread(target=self._enviar, daemon=True)
+        self._hilo.start()
+
+    def aplicar(self, decision: Decision, contexto: dict | None = None) -> None:
+        with self._condicion:
+            self._pendiente = (decision, contexto)
+            self._condicion.notify()
+
+    def _enviar(self) -> None:
+        while True:
+            with self._condicion:
+                self._condicion.wait_for(lambda: self._pendiente is not None or self._cerrado)
+                if self._pendiente is None:
+                    return
+                decision, contexto = self._pendiente
+                self._pendiente = None
+
+            try:
+                self.actuador.aplicar(decision, contexto)
+            except Exception as error:  # noqa: BLE001 - un fallo de envío no debe matar el hilo
+                print(f"[robot] error al enviar: {error}")
+
+    def cerrar(self) -> None:
+        """Termina de enviar lo pendiente (el PARAR final) y cierra el actuador."""
+        with self._condicion:
+            self._cerrado = True
+            self._condicion.notify()
+
+        self._hilo.join(timeout=self.ESPERA_CIERRE_S)
+        self.actuador.cerrar()

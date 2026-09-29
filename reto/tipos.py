@@ -70,11 +70,14 @@ class Decision:
     giro: -1.0 (girar todo a la izquierda) a +1.0 (todo a la derecha).
     razon: texto para el HUD y para poder explicar en la sustentación por
     qué el robot hizo lo que hizo.
+    en_curva: el robot está en una curva o viene una; el actuador manda menos
+    pulsos de avance para que el giro alcance a corregir.
     """
 
     accion: Accion
     giro: float = 0.0
     razon: str = ""
+    en_curva: bool = False
 
 
 @dataclass

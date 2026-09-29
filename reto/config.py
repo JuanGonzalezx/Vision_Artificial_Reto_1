@@ -27,7 +27,7 @@ class Config:
     # Giro que se aplica al frame antes de procesarlo, en grados: 0, 90, 180 o
     # 270. IP Camera Lite entrega la imagen segun como quede el celular en el
     # soporte, y el pipeline asume que la pista se ve "de frente".
-    rotacion: int = 0
+    rotacion: int = 90
 
     # --- Preprocesamiento -------------------------------------------------
     ancho_proceso: int = 480           # se redimensiona a este ancho: menos cómputo, más FPS
@@ -41,9 +41,12 @@ class Config:
     # ve ARRIBA. Por eso la franja "cercana" (la que hay que corregir ya) no es
     # el borde inferior, sino justo encima del carro. Medido en datos/frames/:
     # los píxeles oscuros de la línea están entre y=0.0 y y=0.6; más abajo es
-    # el carro. Si cambia el montaje del celular, esto se recalibra.
-    roi_linea_cercana: tuple[float, float] = (0.40, 0.58)
-    roi_linea_lejana: tuple[float, float] = (0.18, 0.40)
+    # el carro. Con el montaje actual (captura del 29/09) los sensores del
+    # carro empiezan en y≈0.52, así que todas las franjas quedan en la mitad
+    # superior (hasta 0.50): la pista sí, el robot no. Si cambia el montaje
+    # del celular, esto se recalibra.
+    roi_linea_cercana: tuple[float, float] = (0.30, 0.50)
+    roi_linea_lejana: tuple[float, float] = (0.10, 0.30)
     # Línea negra sobre piso claro: lo que la separa es el brillo (V), no el
     # tono. Medido en los frames: línea V≈45-90 con S baja, piso V≈200.
     hsv_linea: Rango = ((0, 0, 0), (179, 90, 110))
@@ -56,7 +59,7 @@ class Config:
     # --- Señales ----------------------------------------------------------
     # Solo la zona de la pista: deja fuera el carro, que trae naranja (pilas) y
     # cian (chasis) y se colaría como señal.
-    roi_senal: tuple[float, float] = (0.00, 0.55)
+    roi_senal: tuple[float, float] = (0.00, 0.50)
     # El rojo está en los dos extremos del círculo de H: necesita dos rangos.
     # En los videos del profesor la señal roja cayó en el extremo alto
     # (H≈173-175, S≈193, V≈168). Las pilas del carro son H≈6-15: por eso el
@@ -101,27 +104,23 @@ class Config:
     peso_linea_lejana: float = 0.0
     umbral_curvatura: float = 0.15     # diferencia entre franjas para mostrar la curva en el HUD
 
-    # --- Horizonte (linea.mirar_adelante) ----------------------------------
-    # En vez de dos franjas sueltas, la zona delante del robot se corta en
-    # tramos y se encadena el centro de la línea de cerca a lejos. Como cada
-    # tramo sigue al anterior, la parte lejana no se va a otro trozo (que fue
-    # lo que hizo fallar peso_linea_lejana).
-    roi_horizonte: tuple[float, float] = (0.05, 0.58)  # desde arriba hasta el borde del carro
-    tramos_horizonte: int = 8
-    area_minima_tramo: int = 120       # área mínima por tramo (los tramos son más bajos que la ROI)
-    salto_maximo_tramo: float = 0.25   # fracción del ancho; más salto entre tramos = ya no es la línea
-    # En un tramo bajo la línea mide ~0.15-0.30 del ancho aun en curva; la
-    # barra negra de las señales, más de 0.6. Medido en video4, frame 241.
-    ancho_maximo_tramo: float = 0.45
-    margen_borde_horizonte: float = 0.06  # fracción del ancho; la cadena termina pegada al borde = curva cerrada
-    tramo_objetivo: int = 6            # a qué tramo apunta el robot (0 = el más cercano)
-    # Cuánto pesa el punto objetivo frente a la franja cercana. Medido con los
-    # 9 clips (2026-09-29): con 0.5 y tramo 6 el giro apunta al lado correcto
-    # 24 % más frames antes de perder la línea (269 -> 333) sin saltos ni
-    # zigzag. Con 0.7 anticipa más (376), pero gira más en todo el recorrido;
-    # subirlo solo si en lazo cerrado (simulador o pista) el carro se sale en
-    # las curvas. 0 = apagado.
-    peso_horizonte: float = 0.5
+    # Frenar en curva. Un pulso `w` avanza 100 ms y uno `a`/`d` gira 30 ms:
+    # con giros medianos el robot avanza mucho más de lo que gira y se sale
+    # de la curva. En curva solo se manda una fracción de los `w`, así el giro
+    # alcanza a corregir. Se entra en curva por dos caminos:
+    #   - el giro pedido ya es grande (la curva está en la franja cercana), o
+    #   - la franja lejana se separa de la cercana (la curva viene en camino).
+    # La franja lejana solo decide la velocidad, no el rumbo: mezclarla en la
+    # desviación empeoró los clips (ver peso_linea_lejana).
+    # Medido en los clips del profesor (rotacion 0, franjas 0.40-0.58 y
+    # 0.18-0.40): |curvatura| >= 0.30 en el 34 % de los frames y >= 0.40 en
+    # el 25 %; |giro| >= 0.6 en el 15 %. Con 0.40 frena en las curvas y no en
+    # rectas un poco torcidas. Recalibrar en la pista con la columna curva_%
+    # de tools/evaluar.py.
+    giro_para_frenar: float = 0.6      # |giro| desde el que se considera curva
+    curvatura_para_frenar: float = 0.40  # |curvatura| que anticipa la curva; 2.0 = desactivado
+    avance_en_curva: float = 0.5       # fracción de los `w` que se mandan en curva; 1.0 = no frena
+
     # Promedio de los ultimos N frames de desviacion. Medido: con 3 los
     # saltos bajan de 12 a 4 y el zigzag a la mitad. Con 5 quedan en 0 pero
     # son 167 ms de retraso a 30 fps, y el retraso no se puede medir con
@@ -148,12 +147,10 @@ class Config:
         enteros_positivos = (
             "ancho_proceso", "kernel_gauss", "kernel_morfologico",
             "frames_confirmacion_senal", "frames_para_buscar", "tiempo_limite_camara_ms",
-            "tramos_horizonte",
         )
         enteros_no_negativos = (
             "area_minima_linea", "area_minima_senal", "iteraciones_apertura",
             "iteraciones_cierre", "suavizado_desviacion", "reintentos_camara",
-            "area_minima_tramo", "tramo_objetivo",
         )
         for nombre in enteros_positivos + enteros_no_negativos:
             minimo = 1 if nombre in enteros_positivos else 0
@@ -166,10 +163,10 @@ class Config:
         for nombre in ("segundos_pare", "espera_entre_senales", "ganancia_giro", "pausa_reconexion_s"):
             _validar_numero(nombre, getattr(self, nombre), 0)
         for nombre in ("zona_muerta", "peso_linea_lejana", "circularidad_minima",
-                       "margen_senal_franja", "peso_horizonte", "salto_maximo_tramo",
-                       "margen_borde_horizonte", "ancho_maximo_tramo"):
+                       "margen_senal_franja", "giro_para_frenar", "avance_en_curva"):
             _validar_numero(nombre, getattr(self, nombre), 0, 1)
-        _validar_numero("umbral_curvatura", self.umbral_curvatura, 0, 2)
+        for nombre in ("umbral_curvatura", "curvatura_para_frenar"):
+            _validar_numero(nombre, getattr(self, nombre), 0, 2)
         _validar_numero("fps_respaldo", self.fps_respaldo, 0)
         if self.fps_respaldo == 0:
             raise ValueError("fps_respaldo debe ser mayor que cero")
@@ -181,10 +178,7 @@ class Config:
             if not isinstance(getattr(self, nombre), bool):
                 raise ValueError(f"{nombre} debe ser true o false")
 
-        if self.tramo_objetivo >= self.tramos_horizonte:
-            raise ValueError("tramo_objetivo debe ser menor que tramos_horizonte")
-
-        for nombre in ("roi_linea_cercana", "roi_linea_lejana", "roi_senal", "roi_horizonte"):
+        for nombre in ("roi_linea_cercana", "roi_linea_lejana", "roi_senal"):
             inicio, fin = _validar_par(nombre, getattr(self, nombre))
             _validar_numero(nombre, inicio, 0, 1)
             _validar_numero(nombre, fin, 0, 1)

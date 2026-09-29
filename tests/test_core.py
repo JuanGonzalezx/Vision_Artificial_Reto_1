@@ -47,6 +47,9 @@ class PruebasConfig(unittest.TestCase):
             "reintentos_camara": (-1,),
             "pausa_reconexion_s": (-1,),
             "fps_respaldo": (0, float("nan")),
+            "avance_en_curva": (-0.1, 1.5),
+            "giro_para_frenar": (-0.1, 1.5),
+            "curvatura_para_frenar": (-0.1, 2.5),
         }
         for campo, valores in casos.items():
             for valor in valores:
@@ -126,6 +129,27 @@ class PruebasControl(unittest.TestCase):
     def test_giro_cero_tiene_accion_recto_incluso_sin_zona_muerta(self):
         decision = decidir(Estado(), linea(0), ResultadoSenal(), Config(zona_muerta=0), 0)
         self.assertEqual((decision.accion, decision.giro), (Accion.RECTO, 0))
+
+    def test_frena_con_giro_grande_o_con_curva_adelante(self):
+        config = Config()
+        casos = (
+            (0.05, 0.0, False),   # recta
+            (0.30, 0.0, False),   # corrección suave
+            (0.80, 0.0, True),    # la curva ya está en la franja cercana
+            (0.05, 0.40, True),   # la curva viene: la franja lejana se separa
+            (0.05, -0.40, True),
+        )
+        for desviacion, curvatura, esperado in casos:
+            with self.subTest(desviacion=desviacion, curvatura=curvatura):
+                decision = decidir(Estado(), linea(desviacion), ResultadoSenal(), config, 0,
+                                   curvatura)
+                self.assertIs(decision.en_curva, esperado)
+
+    def test_la_curvatura_no_cambia_el_rumbo(self):
+        config = Config()
+        sin_curva = decidir(Estado(), linea(0.3), ResultadoSenal(), config, 0, 0.0)
+        con_curva = decidir(Estado(), linea(0.3), ResultadoSenal(), config, 0, 0.9)
+        self.assertEqual((sin_curva.accion, sin_curva.giro), (con_curva.accion, con_curva.giro))
 
 
 class PruebasVision(unittest.TestCase):
