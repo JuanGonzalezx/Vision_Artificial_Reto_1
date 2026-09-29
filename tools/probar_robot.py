@@ -27,18 +27,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from reto.actuador_robot import ADELANTE, ATRAS, DERECHA, IZQUIERDA, PARAR, crear_canal  # noqa: E402
-
-TECLAS = {
-    "w": (ADELANTE, "adelante"),
-    "s": (ATRAS, "atras"),
-    "a": (IZQUIERDA, "izquierda"),
-    "d": (DERECHA, "derecha"),
-    "x": (PARAR, "parar"),
-}
+from reto.actuador_robot import crear_robot  # noqa: E402
 
 
-def medir_latencia(canal) -> None:
+def medir_latencia(robot) -> None:
     """Manda un `w` y pide cronometrar cuándo se movió el robot.
 
     No hay sensor que nos diga cuándo arrancó, así que lo medimos a ojo: es
@@ -46,18 +38,18 @@ def medir_latencia(canal) -> None:
     """
     input("Listo para medir. Enter y cronometra cuando arranque... ")
     inicio = time.monotonic()
-    canal.enviar(ADELANTE)
+    robot.adelante()
     input("Enter apenas veas que se movió... ")
     print(f"Latencia aproximada: {1000 * (time.monotonic() - inicio):.0f} ms")
 
 
-def rafaga(canal, cuantos: int = 10, ritmo_hz: float = 10.0) -> None:
+def rafaga(robot, cuantos: int = 10, ritmo_hz: float = 10.0) -> None:
     """Manda varios `w` seguidos al ritmo real, para ver si avanza parejo."""
     print(f"Mandando {cuantos} 'w' a {ritmo_hz} Hz...")
     for _ in range(cuantos):
-        canal.enviar(ADELANTE)
+        robot.adelante()
         time.sleep(1 / ritmo_hz)
-    canal.enviar(PARAR)
+    robot.parar()
     print("Listo. ¿Avanzó parejo o a tirones?")
 
 
@@ -68,9 +60,18 @@ def main() -> None:
     parser.add_argument("--simulado", action="store_true", help="Solo imprime los comandos.")
     argumentos = parser.parse_args()
 
-    canal = crear_canal(mac=argumentos.mac, puerto_serie=argumentos.puerto,
+    robot = crear_robot(mac=argumentos.mac, puerto=argumentos.puerto,
                         simulado=argumentos.simulado)
-    canal.abrir()
+    robot.conectar()
+
+    # Cada tecla llama directo al verbo del robot.
+    acciones = {
+        "w": robot.adelante,
+        "s": robot.atras,
+        "a": robot.izquierda,
+        "d": robot.derecha,
+        "x": robot.parar,
+    }
 
     print(__doc__.split("Teclas:")[1].strip())
     print("Recuerda: cada comando es un pulso corto, el robot se detiene solo.\n")
@@ -84,28 +85,27 @@ def main() -> None:
             if entrada == "q":
                 break
             if entrada == "t":
-                medir_latencia(canal)
+                medir_latencia(robot)
                 continue
             if entrada == "r":
-                rafaga(canal)
+                rafaga(robot)
                 continue
 
             for letra in entrada:
-                if letra not in TECLAS:
+                if letra not in acciones:
                     print(f"'{letra}' no es un comando; usa w a s d x t r q")
                     continue
 
-                comando, descripcion = TECLAS[letra]
-                canal.enviar(comando)
-                print(f"  {comando} -> {descripcion}")
+                acciones[letra]()
+                print(f"  {letra} -> {acciones[letra].__name__}")
                 time.sleep(0.1)
     except (KeyboardInterrupt, EOFError):
         print()
     finally:
         try:
-            canal.enviar(PARAR)
+            robot.parar()
         finally:
-            canal.cerrar()
+            robot.cerrar()
 
 
 if __name__ == "__main__":

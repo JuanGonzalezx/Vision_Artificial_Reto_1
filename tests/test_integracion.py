@@ -11,7 +11,10 @@ import cv2
 import numpy as np
 
 import main
+from reto.Robot import Robot
+from reto.Robot_mac import RobotMac
 from reto.actuador import ActuadorRegistro
+from reto.actuador_robot import ActuadorRobot, RobotSimulado, crear_robot
 from reto.camara import agregar_credenciales, abrir_camara, describir_fuente, es_fuente_archivo
 from reto.config import Config
 from reto.overlay import mosaico
@@ -157,6 +160,50 @@ class PruebasSesion(unittest.TestCase):
         vista = mosaico(self.frame, {"linea": np.zeros((20, 160), np.uint8)}, ancho_celda=160)
         self.assertEqual(vista.shape, (120, 320, 3))
         np.testing.assert_array_equal(vista[-1, :160], self.frame[-1])
+
+
+class PruebasActuadorRobot(unittest.TestCase):
+    """La Decision llega al robot (o se imprime) sin capas de por medio."""
+
+    def test_crear_robot_elige_el_transporte(self):
+        self.assertIsInstance(crear_robot(simulado=True), RobotSimulado)
+        self.assertIsInstance(crear_robot(puerto="/dev/tty.Makeblock-ELETSPP"), RobotMac)
+        with patch("reto.actuador_robot.socket", Mock(spec=["AF_BLUETOOTH"])):
+            self.assertIsInstance(crear_robot(mac="00:1B:10:21:2C:1B"), Robot)
+        with self.assertRaisesRegex(ValueError, "robot-mac"):
+            crear_robot()
+
+    def test_sin_bluetooth_avisa_y_manda_al_puerto_serie(self):
+        with patch("reto.actuador_robot.socket", Mock(spec=[])):
+            with self.assertRaisesRegex(RuntimeError, "robot-puerto"):
+                crear_robot(mac="00:1B:10:21:2C:1B")
+
+    def test_simulado_imprime_los_comandos(self):
+        actuador = ActuadorRobot(crear_robot(simulado=True), ritmo_hz=1e9)
+        with patch("builtins.print") as imprimir:
+            actuador.aplicar(Decision(Accion.RECTO))
+        imprimir.assert_called_once_with("[robot simulado] w")
+
+    def test_el_actuador_conecta_manda_y_cierra(self):
+        robot = Mock()
+        actuador = ActuadorRobot(robot, ritmo_hz=1e9)
+        actuador.aplicar(Decision(Accion.RECTO))
+        actuador.aplicar(Decision(Accion.PARAR))
+        actuador.cerrar()
+        robot.conectar.assert_called_once()
+        robot.adelante.assert_called_once()
+        robot.parar.assert_called()
+        robot.cerrar.assert_called_once()
+
+    def test_el_giro_se_reparte_en_pulsos(self):
+        robot = Mock()
+        actuador = ActuadorRobot(robot, ritmo_hz=1e9)
+        self.assertEqual(actuador.acciones_para(Decision(Accion.RECTO)), [robot.adelante])
+        self.assertEqual(actuador.acciones_para(Decision(Accion.PARAR)), [robot.parar])
+        # giro pequeño: todavía no toca girar, sigue avanzando
+        self.assertEqual(actuador.acciones_para(Decision(Accion.DERECHA, 0.6)), [robot.adelante])
+        # el acumulado pasa de 1: sale el pulso de giro
+        self.assertEqual(actuador.acciones_para(Decision(Accion.DERECHA, 0.6)), [robot.derecha])
 
 
 if __name__ == "__main__":

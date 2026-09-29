@@ -38,6 +38,8 @@ Comprobado en seco (`--robot-simulado`):
 
 Al cerrar el programa siempre se manda `x`, pase lo que pase.
 
+El transporte (la clase que de verdad entrega los caracteres) vive en `reto/Robot.py` para Bluetooth (Linux y Windows) y en `reto/Robot_mac.py` para el puerto serie de macOS. `ActuadorRobot` les habla directo: traduce cada pulso a su verbo (`adelante`, `izquierda`, `parar`). Ninguna de las dos clases se modifica.
+
 ## Conectarse
 
 ### Linux o Windows
@@ -66,7 +68,7 @@ ls /dev/tty.*                        # buscar el del robot (suele decir Makebloc
 uv run main.py --fuente <url_camara> --robot-puerto /dev/tty.Makeblock-ELETSPP
 ```
 
-Son los mismos caracteres por otro transporte: el firmware no nota la diferencia.
+Son los mismos caracteres por otro transporte: el firmware no nota la diferencia. Ese camino lo implementa `reto/Robot_mac.py` (clase `RobotMac`), la versión de `Robot` para macOS: mismos verbos y mismos tiempos, solo cambia el medio.
 
 ### Sin robot
 
@@ -90,3 +92,4 @@ Imprime los comandos en vez de enviarlos. Sirve para ver la mezcla de pulsos ant
 - La MAC del robot que nos toque.
 - Si con velocidad fija (150 en el firmware) el carro alcanza a corregir en las curvas cerradas de la pista.
 - Cuánta latencia agrega el Bluetooth. Hay que medirla en el laboratorio: mandar `w` y cronometrar cuánto tarda en arrancar.
+- La clase `Robot` imprime cada comando y espera 100 ms: en la pista puede volver la consola ruidosa y acoplar el paso al firmware. Vigilarlo con `--robot-mac`.

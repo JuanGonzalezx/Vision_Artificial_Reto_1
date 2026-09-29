@@ -24,7 +24,7 @@ from pathlib import Path
 import cv2
 
 from reto.actuador import ActuadorConsola, ActuadorMultiple, ActuadorRegistro
-from reto.actuador_robot import ActuadorRobot, crear_canal
+from reto.actuador_robot import ActuadorRobot, crear_robot
 from reto.camara import abrir_camara, describir_fuente, es_fuente_archivo
 from reto.config import Config
 from reto.overlay import accion_en_grande, dibujar, mosaico
@@ -95,13 +95,9 @@ def crear_actuador(argumentos: argparse.Namespace, marca: str, simulador=None) -
     robot = None
 
     if argumentos.robot_simulado or argumentos.robot_mac or argumentos.robot_puerto:
-        canal = crear_canal(
-            mac=argumentos.robot_mac,
-            puerto_serie=argumentos.robot_puerto,
-            simulado=argumentos.robot_simulado,
-        )
         robot = ActuadorRobot(
-            canal,
+            crear_robot(mac=argumentos.robot_mac, puerto=argumentos.robot_puerto,
+                        simulado=argumentos.robot_simulado),
             ritmo_hz=argumentos.robot_ritmo,
             avanzar_al_girar=argumentos.robot_avanzar_al_girar,
         )
