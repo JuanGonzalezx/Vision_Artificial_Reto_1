@@ -122,3 +122,20 @@ Se queda en **3**. Con 5 los saltos desaparecen, pero son 167 ms de retraso a 30
 **Contaminación entre máscaras:** medimos si la señal se cuela en la máscara de la línea cuando se superpone a la franja. En los 1572 frames de ruta ideal, 0 frames con solapamiento significativo. Riesgo abierto: la **sombra** que proyecta la señal sí es oscura y podría entrar; no apareció en estos clips.
 
 **Material para la sustentación:** `docs/media/etapas.png` (las 5 etapas sobre un frame con PARE) y `docs/media/demo_sustentacion.mp4` (tres segmentos: SIGA, PARE y pérdida de línea con BUSCANDO). Guion en `docs/guion-sustentacion.md`.
+
+### 2026-09-29 (noche) — Integración con las pruebas en vivo de Santiago
+
+Santiago ya tiene el pipeline corriendo **en vivo con el celular** (IP Camera Lite sobre WiFi) contra una pista dibujada en papel: el HUD marca SIGUIENDO → DERECHA con desviación +0.13, y la máscara sigue la línea. Es la primera vez que esto corre fuera de los videos del profesor.
+
+**Lo que eso dejó ver:** su montaje no tiene el robot en el cuadro, así que la parte cercana de la pista es el borde inferior, no la franja del 40-58% que veníamos usando con los videos del profesor. **Tres montajes, tres calibraciones.** Para no seguir editando el código en cada prueba:
+
+- `rotacion` en la configuración y `--rotar 0|90|180|270`, porque el celular en el soporte puede quedar de lado.
+- `--roi-linea` y `--roi-senal` por línea de comandos, que mandan sobre el JSON.
+- `config_celular.json`, un perfil con la ROI abajo para el montaje sin robot en cuadro.
+- `--grande`, que escribe la acción con letra grande para mostrarla desde lejos.
+
+**`tools/probar_robot.py`:** teleoperación por teclado, sin visión. Es lo primero que se corre en el laboratorio para separar "no conecta" de "la visión decide mal". Trae medición de latencia (`t`) y ráfaga a 10 Hz (`r`).
+
+Verificado después de todo esto: 39 pruebas OK, y la evaluación sigue en 91.1%, 4 saltos y 5/5 recuperaciones.
+
+Estado contra la rúbrica: `docs/estado-vs-rubrica.md`.

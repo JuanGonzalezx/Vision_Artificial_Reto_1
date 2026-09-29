@@ -4,13 +4,14 @@ Visión Artificial en Tiempo Real · Universidad de Caldas · 2026-2
 
 El programa recibe imágenes de una webcam, un celular por IP o un archivo, detecta la línea y las señales PARE/SIGA, y produce una decisión de movimiento. Usa las técnicas del curso: HSV, máscaras, morfología y contornos; K-Means propone calibraciones fuera del procesamiento en tiempo real.
 
-**Estado al 28 de septiembre:** percepción, control, captura, HUD y grabación integrados. La salida disponible es consola/CSV. La conexión al robot y la validación física quedan pendientes; no se modifica Arduino ni la electrónica.
+**Estado al 29 de septiembre:** percepción, control, captura, HUD y grabación integrados, y el pipeline ya corre en vivo con el celular. Las salidas disponibles son consola, CSV y el robot (`reto/actuador_robot.py`, por Bluetooth o puerto serie). Falta la validación física con el mBot; no se modifica Arduino ni la electrónica.
 
 - [Arquitectura y diagramas del sistema, algoritmo y estados](docs/arquitectura.md)
 - [Cómo probar y comparar resultados](docs/flujo-de-pruebas.md)
 - [Especificación](docs/reto/especificacion.md), [rúbrica](docs/reto/rubrica.md) y [técnicas permitidas](docs/reto/tecnicas-permitidas.md)
 - [Preguntas para la sustentación](docs/preguntas-del-profe.md) y [guion de la demostración](docs/guion-sustentacion.md)
 - [Bitácora y mediciones](docs/bitacora.md)
+- [Cómo hablarle al robot](docs/robot.md) y [dónde vamos contra la rúbrica](docs/estado-vs-rubrica.md)
 
 ## Instalación y verificación
 
@@ -23,7 +24,10 @@ uv sync --locked
 uv run python tools/probar_control.py
 uv run python -m unittest discover -s tests -v
 uv run python tools/evaluar.py
+uv run python tools/probar_robot.py --simulado   # teleoperar el robot, sin visión
 ```
+
+> Ojo: `uv sync --locked` falla si el `pyproject.toml` cambió (por ejemplo al agregar pyserial). En ese caso se corre `uv sync` a secas y se commitea el `uv.lock` actualizado.
 
 Los clips livianos están en `datos/clips/`. La evaluación anterior a la estabilización dio **91.1% de frames con detección de línea, 2341 frames, 4 saltos sospechosos y búsqueda hacia el lado esperado en 5/5 clips de descarrilamiento**. Son mediciones sobre video grabado: no prueban que el robot haya recuperado físicamente la trayectoria ni equivalen a precisión contra anotaciones manuales.
 
@@ -44,6 +48,13 @@ uv run main.py --fuente http://192.168.1.50:8081/ --mascaras
 
 # Si la cámara pide autenticación, también existen -u y -p
 uv run main.py --fuente http://192.168.1.50:8081/ --usuario usuario --contrasena clave
+
+# El celular en el soporte: girar la imagen y ajustar la franja donde se busca la línea
+uv run main.py --fuente http://192.168.1.50:8081/ --rotar 90 --roi-linea 0.78 1.00 --grande
+
+# Con el robot (Linux/Windows por Bluetooth; en macOS por el puerto serie)
+uv run main.py --fuente http://192.168.1.50:8081/ --robot-mac 00:1B:10:21:2C:1B
+uv run main.py --fuente http://192.168.1.50:8081/ --robot-puerto /dev/tty.Makeblock-ELETSPP
 
 # Calibración guardada
 uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --config config_local.json

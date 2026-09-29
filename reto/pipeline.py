@@ -18,6 +18,25 @@ from .overlay import franja_a_pixeles
 from .tipos import Decision, Estado, ResultadoLinea, ResultadoSenal
 
 
+GIROS = {
+    90: cv2.ROTATE_90_CLOCKWISE,
+    180: cv2.ROTATE_180,
+    270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+}
+
+
+def rotar(frame, grados: int):
+    """Gira el frame antes de procesarlo (clase 1).
+
+    El celular en el soporte puede quedar de lado; todo lo demas (ROI,
+    izquierda y derecha) asume que la pista se ve de frente.
+    """
+    if grados == 0:
+        return frame
+
+    return cv2.rotate(frame, GIROS[grados])
+
+
 def preparar(frame, config: Config):
     """Redimensiona a un ancho fijo y suaviza (clases 1 y 3).
 
@@ -26,6 +45,7 @@ def preparar(frame, config: Config):
     """
     if frame is None or getattr(frame, "ndim", None) != 3 or frame.shape[2] != 3:
         raise ValueError("El pipeline necesita un frame BGR de tres canales")
+    frame = rotar(frame, config.rotacion)
     alto, ancho = frame.shape[:2]
     if alto == 0 or ancho == 0:
         raise ValueError("El pipeline recibió un frame vacío")

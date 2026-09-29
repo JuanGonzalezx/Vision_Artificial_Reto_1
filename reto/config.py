@@ -24,6 +24,10 @@ class Config:
     reintentos_camara: int = 5
     pausa_reconexion_s: float = 0.5
     fps_respaldo: float = 30.0
+    # Giro que se aplica al frame antes de procesarlo, en grados: 0, 90, 180 o
+    # 270. IP Camera Lite entrega la imagen segun como quede el celular en el
+    # soporte, y el pipeline asume que la pista se ve "de frente".
+    rotacion: int = 0
 
     # --- Preprocesamiento -------------------------------------------------
     ancho_proceso: int = 480           # se redimensiona a este ancho: menos cómputo, más FPS
@@ -124,6 +128,8 @@ class Config:
             _validar_numero(nombre, getattr(self, nombre), minimo, entero=True)
         if self.kernel_gauss % 2 == 0:
             raise ValueError("kernel_gauss debe ser impar")
+        if self.rotacion not in (0, 90, 180, 270):
+            raise ValueError("rotacion debe ser 0, 90, 180 o 270")
 
         for nombre in ("segundos_pare", "espera_entre_senales", "ganancia_giro", "pausa_reconexion_s"):
             _validar_numero(nombre, getattr(self, nombre), 0)

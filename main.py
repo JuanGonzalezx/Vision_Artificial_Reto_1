@@ -25,7 +25,7 @@ from reto.actuador import ActuadorConsola, ActuadorMultiple, ActuadorRegistro
 from reto.actuador_robot import ActuadorRobot, crear_canal
 from reto.camara import abrir_camara, describir_fuente, es_fuente_archivo
 from reto.config import Config
-from reto.overlay import dibujar, mosaico
+from reto.overlay import accion_en_grande, dibujar, mosaico
 from reto.pipeline import procesar_frame
 from reto.tipos import Accion, Decision, Estado
 
@@ -49,6 +49,14 @@ def parsear_argumentos() -> argparse.Namespace:
                         help="Guarda video y CSV en datos/grabaciones/.")
     parser.add_argument("--consola", action="store_true", help="Imprime las decisiones.")
     parser.add_argument("--sin-ventana", action="store_true", help="Procesa sin abrir ventanas.")
+    parser.add_argument("--rotar", type=int, choices=(0, 90, 180, 270),
+                        help="Gira el frame antes de procesarlo (el celular en el soporte).")
+    parser.add_argument("--roi-linea", type=float, nargs=2, metavar=("DESDE", "HASTA"),
+                        help="Franja de la linea en fracciones del alto, por ejemplo 0.70 1.00.")
+    parser.add_argument("--roi-senal", type=float, nargs=2, metavar=("DESDE", "HASTA"),
+                        help="Franja donde se buscan las senales, por ejemplo 0.00 0.70.")
+    parser.add_argument("--grande", action="store_true",
+                        help="Escribe la accion con letra grande, para mostrarla desde lejos.")
 
     robot = parser.add_argument_group("robot (mBot del profesor)")
     robot.add_argument("--robot-mac", default=os.environ.get("ROBOT_MAC"),
@@ -177,6 +185,8 @@ def ejecutar(argumentos, config: Config) -> int:
             if argumentos.grabar or not argumentos.sin_ventana:
                 vista = dibujar(depuracion["frame"], depuracion["linea"], depuracion["senal"],
                                 decision, estado, config, fps_proceso, depuracion["curvatura"])
+                if argumentos.grande:
+                    vista = accion_en_grande(vista, decision)
                 if argumentos.grabar:
                     if grabador is None:
                         grabador = crear_grabador(vista, marca, fps_fuente)
@@ -210,10 +220,29 @@ def ejecutar(argumentos, config: Config) -> int:
     return frames
 
 
+def aplicar_overrides(config: Config, argumentos: argparse.Namespace) -> Config:
+    """Lo que venga por CLI manda sobre el JSON: ajustar en la pista es mas rapido."""
+    if argumentos.rotar is not None:
+        config.rotacion = argumentos.rotar
+
+    if argumentos.roi_linea:
+        desde, hasta = argumentos.roi_linea
+        mitad = (desde + hasta) / 2
+        config.roi_linea_lejana = (desde, mitad)
+        config.roi_linea_cercana = (mitad, hasta)
+
+    if argumentos.roi_senal:
+        config.roi_senal = tuple(argumentos.roi_senal)
+
+    config.validar()
+    return config
+
+
 def main() -> int:
     argumentos = parsear_argumentos()
     try:
         config = Config.desde_json(argumentos.config) if argumentos.config else Config()
+        config = aplicar_overrides(config, argumentos)
         ejecutar(argumentos, config)
     except KeyboardInterrupt:
         print("Sesion interrumpida.")

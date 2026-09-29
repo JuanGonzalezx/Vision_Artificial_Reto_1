@@ -67,6 +67,31 @@ def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decis
     return salida
 
 
+def accion_en_grande(imagen, decision: Decision):
+    """Escribe la accion con letra grande, para que se lea desde lejos.
+
+    Es solo presentacion: sirve para mostrarle el resultado al profesor sin
+    que tenga que acercarse a leer el HUD pequeño.
+    """
+    colores = {"PARAR": ROJO, "BUSCAR": AMARILLO}
+    color = colores.get(decision.accion.value, VERDE)
+    alto, ancho = imagen.shape[:2]
+    escala = ancho / 420
+
+    texto = decision.accion.value
+    (ancho_texto, alto_texto), _ = cv2.getTextSize(
+        texto, cv2.FONT_HERSHEY_SIMPLEX, escala, max(2, int(escala * 2))
+    )
+    x = (ancho - ancho_texto) // 2
+    y = alto // 2 + alto_texto // 2
+
+    cv2.rectangle(imagen, (x - 12, y - alto_texto - 12), (x + ancho_texto + 12, y + 12),
+                  (20, 20, 20), -1)
+    cv2.putText(imagen, texto, (x, y), cv2.FONT_HERSHEY_SIMPLEX, escala, color,
+                max(2, int(escala * 2)), cv2.LINE_AA)
+    return imagen
+
+
 def mosaico(frame, mascaras: dict[str, "np.ndarray"], ancho_celda: int = 320):
     """Arma una cuadrícula con el frame y las máscaras, para calibrar.
 
