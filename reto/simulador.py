@@ -7,7 +7,7 @@ Flujo alterno `uv run main.py --index`: hace de "cámara" y de "robot" a la vez.
 
 Solo usa la librería estándar: el servidor HTTP sirve la carpeta simulacion/ y
 recibe los frames. Por dentro se comporta como una captura de OpenCV
-(`read`, `release`) y como un `Actuador` (`enviar`, `cerrar`), así que
+(`read`, `release`) y como un actuador (`aplicar`, `cerrar`), así que
 `main.py` lo trata igual que a la cámara del celular y al robot.
 """
 
@@ -68,7 +68,7 @@ class PuenteSimulador:
         return 0.0
 
     # --- como actuador ---------------------------------------------------
-    def enviar(self, decision: Decision) -> None:
+    def aplicar(self, decision: Decision, contexto: dict | None = None) -> None:
         self._comando = comando_desde_decision(decision)
 
     def cerrar(self) -> None:

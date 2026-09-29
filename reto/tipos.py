@@ -7,7 +7,7 @@ los tres.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -60,6 +60,7 @@ class ResultadoSenal:
     vertices: int = 0
     contorno: Any | None = None
     mascara: Any | None = None
+    es_octagono: bool = False
 
 
 @dataclass(frozen=True)
@@ -88,3 +89,4 @@ class Estado:
     senal_candidata: str | None = None
     detenido_hasta: float = 0.0
     ultima_senal_obedecida: float = -999.0
+    ultimas_desviaciones: list = field(default_factory=list)

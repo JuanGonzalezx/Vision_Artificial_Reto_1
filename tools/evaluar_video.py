@@ -2,7 +2,7 @@
 
     uv run python tools/evaluar_video.py [video] [--config json] [--csv salida.csv]
 
-Sin argumentos usa vid/video1.mp4. El reloj del control se simula con el
+Sin argumentos usa datos/clips/rutaIdeal/video1.mp4. El reloj del control se simula con el
 número de frame (frame / fps), así el resultado no depende de qué tan rápido
 corra el computador. Sirve para comprobar los criterios de aceptación del
 plan (docs/plan-reto.md, sección 5) y RNF-01 (ms por frame).
@@ -25,7 +25,7 @@ from reto.control import confirmar_senal  # noqa: E402
 from reto.pipeline import procesar_frame  # noqa: E402
 from reto.tipos import Estado  # noqa: E402
 
-VIDEO_POR_DEFECTO = "vid/video1.mp4"
+VIDEO_POR_DEFECTO = "datos/clips/rutaIdeal/video1.mp4"
 COLUMNAS_CSV = ["t", "frame", "fps", "estado", "accion", "giro", "desviacion",
                 "linea_detectada", "senal", "area_senal"]
 FPS_SIN_DATO = 30.0

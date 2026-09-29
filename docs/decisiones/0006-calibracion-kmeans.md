@@ -1,4 +1,4 @@
-# 0003 — Calibración de rangos HSV con K-Means
+# 0006 — Calibración de rangos HSV con K-Means
 
 - **Fecha:** 2026-09-28
 - **Estado:** propuesta
@@ -8,7 +8,7 @@
 Los rangos HSV de la línea, el rojo y el verde cambian con la luz del salón. Ajustarlos a mano el día de la competencia es lento y propenso a errores. En video1 la línea no tiene un color único: va de V ~18 (cinta transversal) a V ~83 (cinta con textura), con S bajo.
 
 ## Decisión
-`tools/calibrar.py` toma frames reales (sin la zona del chasis), agrupa los píxeles (H, S, V) con `sklearn.cluster.KMeans` (clase 4) y la persona indica qué clusters son línea, rojo y verde. Cada rango sale de media ± N desviaciones por canal (N = 3.5 en video1) y se guarda como JSON para `main.py --config`. La línea admite varios clusters (`--linea 3,5`) y el rojo se calcula con el tono desplazado medio círculo, porque da la vuelta en 0/179.
+`tools/calibrar_clusters.py` toma frames reales (sin la zona del chasis), agrupa los píxeles (H, S, V) con `sklearn.cluster.KMeans` (clase 4) y la persona indica qué clusters son línea, rojo y verde. Cada rango sale de media ± N desviaciones por canal (N = 3.5 en video1) y se guarda como JSON para `main.py --config`. La línea admite varios clusters (`--linea 3,5`) y el rojo se calcula con el tono desplazado medio círculo, porque da la vuelta en 0/179.
 
 ## Alternativas consideradas
 - **Rangos a mano:** lo que hacíamos; no escala a otra luz.

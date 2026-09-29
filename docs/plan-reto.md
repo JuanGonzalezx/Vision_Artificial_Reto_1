@@ -50,7 +50,7 @@
 Reglas:
 
 - La variable de entorno `CAMARA_URL` reemplaza la fuente por defecto. Así cada integrante puede dejar fija la IP de su celular sin tocar el código.
-- `--config <json>` carga una calibración sin tocar el código. Perfiles versionados en `configs/`: `video1.json` (señales cuadradas) y `video1-kmeans.json` (calibrado con `tools/calibrar.py`).
+- `--config <json>` carga una calibración sin tocar el código. Perfiles versionados en `configs/`: `video1.json` (señales cuadradas) y `video1-kmeans.json` (calibrado con `tools/calibrar_clusters.py`).
 - `vid/video1.mp4` **no se sube al repo** (`*.mp4` está en `.gitignore`). Cada integrante lo pone en `vid/` de su copia local.
 - Un requisito se considera **cumplido** solo cuando pasa en desarrollo (video1) **y** en prueba real (celular). Pasar solo con el video no basta.
 
@@ -133,7 +133,7 @@ Cada requisito tiene un criterio de aceptación **verificable**. "Video1" = `vid
 
 | ID | Prio | Requisito | Criterio de aceptación |
 |---|---|---|---|
-| RF-19 | S | Calibrar los rangos HSV con K-Means (clase 4) a partir de un frame real y guardarlos como JSON | `tools/calibrar.py --fuente vid/video1.mp4` genera un JSON que, cargado con `--config`, cumple RF-05 y RF-09. Recalibrar toma < 60 s (🟡 2026-09-28: `calibrar.py` listo, línea 99.0 % en video1; rojo y verde por validar con F3) |
+| RF-19 | S | Calibrar los rangos HSV con K-Means (clase 4) a partir de un frame real y guardarlos como JSON | `tools/calibrar_clusters.py --fuente vid/video1.mp4` genera un JSON que, cargado con `--config`, cumple RF-05 y RF-09. Recalibrar toma < 60 s (🟡 2026-09-28: `calibrar_clusters.py` listo, línea 99.0 % en video1; rojo y verde por validar con F3) |
 | RF-20 | M | HUD con estado, acción, razón, FPS y ROI dibujadas; mosaico de máscaras con `--mascaras` | ✅ Existe. Tiene que seguir funcionando con las ROI nuevas |
 | RF-21 | S | Registro por frame en CSV: `t, frame, fps, estado, accion, giro, desviacion, linea_detectada, senal, area_senal` | `main.py --registro corrida.csv` y `evaluar_video.py` lo escriben; se abre en pandas o Excel sin errores (🟡 `evaluar_video.py --csv` ya lo escribe; falta `main.py --registro` (T5.1)) |
 | RF-22 | C | Grabar la vista con el HUD a un `.mp4` (`--grabar`) | Requiere respuesta de P-06. El archivo se reproduce y dura lo mismo que la corrida |
@@ -252,10 +252,10 @@ Las fases F2 y F3 van **en paralelo** (archivos distintos, contrato común en `t
 
 ### F4 — Calibración con K-Means (Daniel, apoyo de Santiago) · diferenciador
 
-- [x] **T4.1** · `tools/calibrar.py --fuente <video|imagen> [--frame N] --k 5`: toma el frame, recorta la ROI sin el chasis, lo pasa a HSV y corre `KMeans` sobre los píxeles. Muestra los centroides como parches numerados · F2, F3 · RF-19. *Hecho 2026-09-28.*
+- [x] **T4.1** · `tools/calibrar_clusters.py --fuente <video|imagen> [--frame N] --k 5`: toma el frame, recorta la ROI sin el chasis, lo pasa a HSV y corre `KMeans` sobre los píxeles. Muestra los centroides como parches numerados · F2, F3 · RF-19. *Hecho 2026-09-28.*
 - [x] **T4.2** · El usuario elige qué cluster es línea, rojo y verde. El script calcula cada rango (centroide ± k·desviación estándar por canal, con H del rojo que da la vuelta en 0/179) y lo guarda con `Config.guardar()` en `configs/` · T4.1 · RF-19. *Hecho 2026-09-28; la línea admite varios clusters (`--linea 3,5`).*
 - [ ] **T4.3** · Validar: la calibración generada desde video1 cumple los DoD de F2 y F3 · T4.2.
-- [x] **T4.4** · `docs/decisiones/0003-calibracion-kmeans.md` · T4.3 · Diferenciación.
+- [x] **T4.4** · `docs/decisiones/0006-calibracion-kmeans.md` · T4.3 · Diferenciación.
 
 **DoD de F4:** recalibrar desde cero en < 60 s cronometrado, y la calibración resultante pasa `evaluar_video.py`.
 
@@ -277,7 +277,7 @@ Cada ensayo cumple el DoD de "Ensayo en pista" (8.2).
 - [ ] **T6.3** · Ensayo de recuperación: sacar el robot de la línea a propósito 5 veces. Meta: la recupera en ≤ 3 s, 5 de 5 veces · RF-18.
 - [ ] **T6.4** · Ensayo de señales: 10 pasadas por PARE y 10 por SIGA, con objetos rojos y verdes de distractor cerca. Meta: 10/10 correctas y 0 falsos positivos · RF-09..14, RF-16, RF-17.
 - [ ] **T6.5** · Ensayo general cronometrado con las reglas de la competencia. Meta: DoD del proyecto (8.3) · Todo.
-- [ ] **T6.6** · Ensayo con otra luz: recalibrar con `calibrar.py` y repetir T6.4 · RF-19.
+- [ ] **T6.6** · Ensayo con otra luz: recalibrar con `calibrar_clusters.py` y repetir T6.4 · RF-19.
 
 ### F7 — Estrategia y documentación (Juan David, aportes de todos)
 
@@ -291,7 +291,7 @@ Cada ensayo cumple el DoD de "Ensayo en pista" (8.2).
 - [ ] **T8.1** · Análisis de resultados a partir de los CSV y la bitácora: **aciertos, errores, dificultades, limitaciones y mejoras** (la rúbrica pide los 5). Gráficas: desviación en el tiempo, FPS y detecciones.
 - [ ] **T8.2** · Póster: problema → pipeline → cada etapa con su técnica y clase → máscaras reales → estrategia propia → resultados → limitaciones.
 - [ ] **T8.3** · Sustentación cruzada: Daniel explica señales, Juan David explica la línea y Santiago explica el control y la calibración. Cada uno ≤ 2 min por módulo (RNF-05).
-- [ ] **T8.4** · Kit del día de la competencia: `configs/pista-final.json` más uno de respaldo, hotspot propio, celular cargado, app sin marcas de agua, `calibrar.py` probado.
+- [ ] **T8.4** · Kit del día de la competencia: `configs/pista-final.json` más uno de respaldo, hotspot propio, celular cargado, app sin marcas de agua, `calibrar_clusters.py` probado.
 
 ## 10. Protocolo de pruebas
 
@@ -371,7 +371,7 @@ Al 2026-09-28.
 | `linea.py` | ✅ Implementado (F2): 99.1 % de frames con línea, 2.3 ms/frame · ⬜ falta probar con video real del celular (T0.2) |
 | `senales.py` | ⬜ Stub; `circularidad` y `es_octagono` sí existen (F3) |
 | `evaluar_video.py`, `probar_linea.py` | ✅ |
-| `calibrar.py` | ✅ `configs/video1-kmeans.json`: línea 99.0 %, salto máx. 0.56 · ⬜ rojo y verde por validar con F3 (T4.3) |
+| `calibrar_clusters.py` | ✅ `configs/video1-kmeans.json`: línea 99.0 %, salto máx. 0.56 · ⬜ rojo y verde por validar con F3 (T4.3) |
 | `probar_senales.py` | ⬜ Por crear |
 | Ensayos en pista | ⬜ 0 |
 | Póster y análisis | ⬜ 0 |
@@ -393,6 +393,6 @@ Al 2026-09-28.
 |---|---|---|
 | 2026-09-28 | 1.4 | T5.6: flujo `--index`, `reto/actuador.py`, `reto/simulador.py`, `configs/simulador.json` |
 | 2026-09-28 | 1.3 | Estado por requisito (RF-04..08, 19, 21), avance de Daniel, cambios compartidos y bloqueos en la sección 14 |
-| 2026-09-28 | 1.2 | F4: `tools/calibrar.py` (T4.1, T4.2) y decisión 0003 (T4.4). T4.3 queda pendiente hasta tener F3 |
+| 2026-09-28 | 1.2 | F4: `tools/calibrar_clusters.py` (T4.1, T4.2) y decisión 0006 (T4.4). T4.3 queda pendiente hasta tener F3 |
 | 2026-09-28 | 1.1 | RF-05: criterio de saltos relajado a 0.6 dentro de la ventana de la cinta transversal (medido en video1). T0.6, T1.1, T1.2 y F2 hechas |
 | 2026-09-28 | 1.0 | Primera especificación: requisitos, DoD, plan por fases y medición de video1. Fuente de desarrollo por defecto = `vid/video1.mp4` |

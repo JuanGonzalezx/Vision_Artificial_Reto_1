@@ -41,6 +41,15 @@ def confirmar_senal(estado: Estado, senal: ResultadoSenal, config: Config) -> st
     return None
 
 
+def _orden_de_giro(desviacion: float, config: Config) -> tuple[Accion, float]:
+    """Traduce una desviación a la misma orden con o sin línea visible."""
+    giro = max(-1.0, min(1.0, desviacion * config.ganancia_giro))
+    if abs(desviacion) < config.zona_muerta or giro == 0:
+        return Accion.RECTO, 0.0
+    accion = Accion.DERECHA if giro > 0 else Accion.IZQUIERDA
+    return accion, giro
+
+
 def decidir(estado: Estado, linea: ResultadoLinea, senal: ResultadoSenal,
             config: Config, ahora: float | None = None) -> Decision:
     """Decide la acción de este frame y actualiza la memoria del robot."""
@@ -76,7 +85,10 @@ def decidir(estado: Estado, linea: ResultadoLinea, senal: ResultadoSenal,
             lado = "derecha" if giro > 0 else "izquierda"
             return Decision(Accion.BUSCAR, giro, f"linea perdida: buscando hacia la {lado}")
 
-        return Decision(Accion.RECTO, estado.ultimo_giro,
+        # ultimo_giro conserva la desviación vista (también orienta BUSCAR).
+        # La orden debe conservar la ganancia y la zona muerta anteriores.
+        accion, giro = _orden_de_giro(estado.ultimo_giro, config)
+        return Decision(accion, giro,
                         f"linea perdida hace {estado.frames_sin_linea} frames: mantengo rumbo")
 
     # 4. Con línea: giro proporcional a la desviación.
@@ -84,10 +96,8 @@ def decidir(estado: Estado, linea: ResultadoLinea, senal: ResultadoSenal,
     estado.estado = EstadoRobot.SIGUIENDO
     estado.ultimo_giro = linea.desviacion
 
-    if abs(linea.desviacion) < config.zona_muerta:
-        return Decision(Accion.RECTO, 0.0, f"centrado ({linea.desviacion:+.2f})")
-
-    giro = max(-1.0, min(1.0, linea.desviacion * config.ganancia_giro))
-    accion = Accion.DERECHA if linea.desviacion > 0 else Accion.IZQUIERDA
+    accion, giro = _orden_de_giro(linea.desviacion, config)
+    if accion is Accion.RECTO:
+        return Decision(accion, giro, f"centrado ({linea.desviacion:+.2f})")
 
     return Decision(accion, giro, f"desviacion {linea.desviacion:+.2f}")

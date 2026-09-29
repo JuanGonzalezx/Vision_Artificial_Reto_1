@@ -18,25 +18,50 @@ from .overlay import franja_a_pixeles
 from .tipos import Decision, Estado, ResultadoLinea, ResultadoSenal
 
 
+GIROS = {
+    90: cv2.ROTATE_90_CLOCKWISE,
+    180: cv2.ROTATE_180,
+    270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+}
+
+
+def rotar(frame, grados: int):
+    """Gira el frame antes de procesarlo (clase 1).
+
+    El celular en el soporte puede quedar de lado; todo lo demas (ROI,
+    izquierda y derecha) asume que la pista se ve de frente.
+    """
+    if grados == 0:
+        return frame
+
+    return cv2.rotate(frame, GIROS[grados])
+
+
 def preparar(frame, config: Config):
     """Redimensiona a un ancho fijo y suaviza (clases 1 y 3).
 
     Procesar en pequeño es lo que mantiene los FPS, y los FPS son los que
     deciden si la corrección llega a tiempo.
     """
+    if frame is None or getattr(frame, "ndim", None) != 3 or frame.shape[2] != 3:
+        raise ValueError("El pipeline necesita un frame BGR de tres canales")
+    frame = rotar(frame, config.rotacion)
     alto, ancho = frame.shape[:2]
+    if alto == 0 or ancho == 0:
+        raise ValueError("El pipeline recibió un frame vacío")
 
     if ancho != config.ancho_proceso:
-        nuevo_alto = int(alto * config.ancho_proceso / ancho)
+        nuevo_alto = max(1, int(alto * config.ancho_proceso / ancho))
         frame = cv2.resize(frame, (config.ancho_proceso, nuevo_alto))
 
-    kernel = config.kernel_gauss + (1 - config.kernel_gauss % 2)  # siempre impar
-    return cv2.GaussianBlur(frame, (kernel, kernel), 0)
+    return cv2.GaussianBlur(frame, (config.kernel_gauss, config.kernel_gauss), 0)
 
 
 def recortar(frame, franja: tuple[float, float]):
     """Devuelve la franja horizontal indicada (ROI, clase 1)."""
     y1, y2 = franja_a_pixeles(frame.shape[0], franja)
+    if not 0 <= y1 < y2 <= frame.shape[0]:
+        raise ValueError(f"La ROI {franja} no contiene filas válidas con este tamaño de frame")
     return frame[y1:y2, :], y1
 
 
@@ -45,8 +70,10 @@ def procesar_frame(frame, estado: Estado, config: Config,
     """Ejecuta el algoritmo completo sobre un frame.
 
     Devuelve la decisión y un diccionario con los resultados intermedios,
-    que overlay usa para dibujar y nosotros para calibrar. `ahora` permite
-    simular el reloj al evaluar un video sin ventanas.
+    que overlay usa para dibujar y nosotros para calibrar.
+
+    `ahora` permite pasar un reloj distinto al del sistema: el tiempo del
+    video al evaluar clips, o el del simulador. Sin él usa el reloj real.
     """
     preparado = preparar(frame, config)
 
@@ -62,17 +89,37 @@ def procesar_frame(frame, estado: Estado, config: Config,
     senal: ResultadoSenal = modulo_senales.detectar(roi_senal, config)
 
     linea = combinar_franjas(linea, linea_lejana, config, desplazamiento)
+    linea = suavizar(linea, estado, config)
     decision = decidir(estado, linea, senal, config, ahora)
+
+    # Diferencia entre lo que ve la franja lejana y la cercana: positiva, la
+    # pista se va a la derecha mas adelante. No entra en la decision todavia
+    # (ver peso_linea_lejana), pero se muestra en el HUD.
+    curvatura = (linea_lejana.desviacion - linea.desviacion
+                 if linea.detectada and linea_lejana.detectada else 0.0)
 
     depuracion = {
         "frame": preparado,
         "linea": linea,
         "linea_lejana": linea_lejana,
+        "curvatura": curvatura,
         "senal": senal,
         "mascaras": {"linea": linea.mascara, "senal": senal.mascara},
     }
 
     return decision, depuracion
+
+
+def suavizar(linea: ResultadoLinea, estado: Estado, config: Config) -> ResultadoLinea:
+    """Promedia las últimas desviaciones con operaciones aritméticas (clase 2)."""
+    if config.suavizado_desviacion <= 1 or not linea.detectada:
+        if not linea.detectada:
+            estado.ultimas_desviaciones.clear()
+        return linea
+    estado.ultimas_desviaciones.append(linea.desviacion)
+    del estado.ultimas_desviaciones[:-config.suavizado_desviacion]
+    promedio = sum(estado.ultimas_desviaciones) / len(estado.ultimas_desviaciones)
+    return ResultadoLinea(True, linea.centro_x, promedio, linea.area, linea.mascara)
 
 
 def combinar_franjas(cercana: ResultadoLinea, lejana: ResultadoLinea, config: Config,

@@ -1,41 +1,111 @@
-"""Salida del cerebro: entrega cada `Decision` a quien mueve el robot.
+"""A dónde va la decisión: consola, registro, simulador o robot real.
 
-Es el único punto que cambia entre el simulador y el robot real. `main.py`
-solo conoce la interfaz `Actuador`; para el robot físico se agrega otra clase
-(por ejemplo `ActuadorSerial`) que traduzca `comando_desde_decision` a su
-protocolo, y ningún otro módulo cambia (docs/arquitectura.md, RF-23).
+El control decide y ya; quién ejecuta esa decisión se cambia aquí sin tocar
+el resto. Es lo que permite probar el mismo cerebro contra el simulador y
+después contra el carro, sin cambiar una línea de `control.py`.
+
+Un actuador solo tiene que cumplir esto:
+
+    class MiActuador:
+        def aplicar(self, decision: Decision, contexto: dict | None = None) -> None: ...
+        def cerrar(self) -> None: ...
 """
 
 from __future__ import annotations
 
-from typing import Protocol
+import csv
+import time
+from pathlib import Path
 
 from .tipos import Decision
 
 
-class Actuador(Protocol):
-    """Lo que `main.py` necesita de cualquier destino de las decisiones."""
+class ActuadorConsola:
+    """Imprime la decisión. Útil para ver qué está pensando el robot."""
 
-    def enviar(self, decision: Decision) -> None:
-        """Entrega la decisión de este frame."""
+    def __init__(self, solo_cambios: bool = True) -> None:
+        self.solo_cambios = solo_cambios
+        self._ultima: str | None = None
+
+    def aplicar(self, decision: Decision, contexto: dict | None = None) -> None:
+        clave = f"{decision.accion.value}|{decision.razon}"
+
+        if self.solo_cambios and clave == self._ultima:
+            return
+
+        self._ultima = clave
+        print(f"[{decision.accion.value:<10}] giro {decision.giro:+.2f}  {decision.razon}")
 
     def cerrar(self) -> None:
-        """Libera lo que haya abierto (puerto, servidor)."""
-
-
-class ActuadorNulo:
-    """No mueve nada: la decisión solo se ve en el HUD (flujo normal)."""
-
-    def enviar(self, decision: Decision) -> None:
         pass
+
+
+class ActuadorRegistro:
+    """Guarda cada decisión en un CSV.
+
+    De aquí salen las gráficas del póster y el análisis de resultados: cuántas
+    correcciones hubo, cuánto tiempo estuvo sin ver la línea, en qué momento
+    reconoció cada señal.
+    """
+
+    COLUMNAS = ("tiempo", "accion", "giro", "razon", "desviacion", "linea_detectada", "senal")
+
+    def __init__(self, ruta: str | Path) -> None:
+        ruta = Path(ruta)
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+
+        self._archivo = ruta.open("w", newline="", encoding="utf8")
+        self._csv = csv.writer(self._archivo)
+        self._csv.writerow(self.COLUMNAS)
+        self._inicio = time.monotonic()
+
+    def aplicar(self, decision: Decision, contexto: dict | None = None) -> None:
+        contexto = contexto or {}
+        linea = contexto.get("linea")
+        senal = contexto.get("senal")
+        tiempo = contexto.get("tiempo")
+        if tiempo is None:
+            tiempo = time.monotonic() - self._inicio
+
+        self._csv.writerow((
+            f"{tiempo:.3f}",
+            decision.accion.value,
+            f"{decision.giro:.3f}",
+            decision.razon,
+            f"{getattr(linea, 'desviacion', 0.0):.3f}",
+            int(bool(getattr(linea, "detectada", False))),
+            getattr(senal, "tipo", None) or "",
+        ))
 
     def cerrar(self) -> None:
-        pass
+        self._archivo.close()
+
+
+class ActuadorMultiple:
+    """Manda la misma decisión a varios actuadores (consola + registro + simulador)."""
+
+    def __init__(self, *actuadores) -> None:
+        self.actuadores = [a for a in actuadores if a is not None]
+
+    def aplicar(self, decision: Decision, contexto: dict | None = None) -> None:
+        for actuador in self.actuadores:
+            actuador.aplicar(decision, contexto)
+
+    def cerrar(self) -> None:
+        for actuador in self.actuadores:
+            actuador.cerrar()
 
 
 def comando_desde_decision(decision: Decision) -> dict:
     """Formato común de la orden: acción y giro (-1 izquierda .. +1 derecha).
 
-    Lo usan el simulador y, más adelante, el robot real.
+    Lo usa el puente del simulador (`reto/simulador.py`) para responderle al
+    navegador; el robot real traduce la `Decision` por su cuenta.
     """
     return {"accion": decision.accion.value, "giro": round(decision.giro, 3)}
+
+
+# --- Pendientes -------------------------------------------------------------
+#
+# El simulador ya entra como actuador y como cámara: `PuenteSimulador`
+# (reto/simulador.py, `main.py --index`).
