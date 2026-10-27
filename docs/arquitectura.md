@@ -46,10 +46,10 @@ flowchart TD
     H --> J["Combinar franjas si se habilita su peso"]
     I --> J
     J --> K["Promediar últimas desviaciones; limpiar memoria al perder línea"]
-    S --> T["BGR a HSV; rojo en dos rangos y verde"]
-    T --> U["Morfología y contornos por color"]
-    U --> V["Filtrar área y aspecto; calcular vértices y circularidad"]
-    V --> W["Filtro de octágono opcional; elegir candidato de mayor área"]
+    S --> T["BGR a HSV; máscara de color fuerte (rojo, verde o ámbar)"]
+    T --> U["Morfología y contornos: cajas candidatas"]
+    U --> V["Recorte con margen y clasificación con la CNN (Reto 2)"]
+    V --> W["Descartar por confianza; elegir la de mayor confianza"]
     K --> X["control.decidir con memoria y reloj"]
     W --> X
     X --> Y["Decision y datos de depuración"]
@@ -76,11 +76,11 @@ La franja lejana se sigue calculando para el HUD. El indicador llamado `curvatur
 
 ### Señales
 
-La ROI ocupa el 0–55% del alto para excluir las pilas y el chasis del carro. El rojo necesita dos rangos de tono y sus máscaras se unen con OR. Para cada color se limpian máscaras, se filtran contornos por área y aspecto, y se calculan aproximación poligonal y circularidad `4πA/P²`.
+Las reconocen las CNN del Reto 2. La ROI ocupa el 0–50% del alto para excluir las pilas y el chasis del carro. La localización es híbrida: una sola máscara de color fuerte (rojo, verde o ámbar) sobre HSV propone regiones candidatas (morfología, contornos y `boundingRect`, filtradas por área y aspecto) y cada recorte se clasifica con el modelo de `modelos/senales.keras`, entrenado con el material de clase (`5_cnns/`). Se descartan los candidatos por debajo de `confianza_minima_senal` y se elige el de mayor confianza; `area` es un indicador de tamaño aparente, no una distancia medida.
 
-El detector devuelve un único candidato, el de mayor área. `es_octagono` indica si supera los filtros geométricos. Con `exigir_octagono=False` esos filtros no excluyen una señal: las cartulinas de los clips dan 4–5 vértices y se decidió preservar su detección. Con `True` solo se aceptan candidatos que los superan.
+El detector es configurable con `detector_senales`: `"cnn"` (por defecto) o `"color"` (el del Reto 1, que solo conoce PARE y SIGA por color y forma). Si no existe el `.keras`, el pipeline avisa una vez y cae al detector por color. La clasificación necesita replicar el `preprocess_input` y el tamaño de entrada del entrenamiento (`clase_modelo_senales`, `tamano_entrada_senales`), y el orden de clases es el `sorted()` de las carpetas del dataset (`clases_senales`). Ver decisión [0010](decisiones/0010-clasificador-cnn.md).
 
-Este filtro de forma es aproximado: contar 7–9 vértices y exigir circularidad mínima no garantiza separar un círculo de un octágono. La ausencia de falsas detecciones en los cinco clips negativos no demuestra inmunidad frente a cualquier objeto rojo o verde. El área es un indicador de tamaño aparente, no una distancia medida.
+El detector por color sigue disponible como respaldo: el rojo necesita dos rangos de tono y sus máscaras se unen con OR; para cada color se limpian máscaras, se filtran contornos por área y aspecto, y se calculan aproximación poligonal y circularidad `4πA/P²`. `es_octagono` indica si el candidato supera los filtros geométricos; con `exigir_octagono=False` esos filtros no excluyen una señal (las cartulinas de los clips dan 4–5 vértices). Ese filtro es aproximado: contar 7–9 vértices y exigir circularidad mínima no garantiza separar un círculo de un octágono.
 
 ## 3. Máquina de estados
 
@@ -116,7 +116,8 @@ Al salir de `DETENIDO`, las reglas de línea se evalúan en el mismo frame: el e
 | `main.py`, `camara.py` | Entrada, autenticación, reloj, reconexión, presentación y cierre | Santiago |
 | `pipeline.py` | Orden y coordinación de etapas | Daniel |
 | `linea.py` | Máscara y posición de la línea | Juan David |
-| `senales.py` | Máscaras y candidatos PARE/SIGA | Daniel |
+| `senales.py` | Máscaras, candidatos por color y respaldo del Reto 1 | Daniel |
+| `clasificador.py` | Clasificación CNN de las señales (Reto 2) | Daniel |
 | `control.py` | Máquina de estados sin OpenCV | Juan David |
 | `actuador.py` | Consumir decisiones: consola, CSV y futuros adaptadores | Compartido |
 | `overlay.py` | Presentación de resultados y máscaras | Compartido |
@@ -126,14 +127,15 @@ Los contratos están en `reto/tipos.py`; esta integración los conserva:
 
 ```python
 linea.detectar(roi, config) -> ResultadoLinea
-senales.detectar(roi, config) -> ResultadoSenal
+senales.detectar(roi, config) -> ResultadoSenal         # respaldo por color
+clasificador.detectar(roi, config) -> ResultadoSenal    # CNN (Reto 2)
 control.decidir(estado, linea, senal, config, ahora=None) -> Decision
 pipeline.procesar_frame(frame, estado, config, ahora=None) -> (Decision, dict)
 actuador.aplicar(decision, contexto=None)
 actuador.cerrar()
 ```
 
-`ResultadoLinea` incluye detección, centro x, desviación, área y máscara. `ResultadoSenal` incluye tipo, área, centro, vértices, contorno, máscara y `es_octagono`. Las coordenadas geométricas son locales a cada ROI; el overlay las traslada al dibujar. `Decision` contiene acción, giro y razón; `Estado` conserva memoria entre frames.
+`ResultadoLinea` incluye detección, centro x, desviación, área y máscara. `ResultadoSenal` incluye tipo, área, centro, vértices, contorno, máscara, `es_octagono` y `confianza` (la probabilidad de la CNN; `0.0` en el detector por color). Las coordenadas geométricas son locales a cada ROI; el overlay las traslada al dibujar. `Decision` contiene acción, giro y razón; `Estado` conserva memoria entre frames.
 
 ## 5. Técnicas y evidencia
 
@@ -142,6 +144,7 @@ actuador.cerrar()
 | Preparación | Resize y ROI (clase 1), Gauss (clase 3) |
 | Color | HSV (clase 1), inRange y operaciones lógicas (clase 2) |
 | Limpieza y geometría | Morfología, contornos, momentos, aproximación poligonal y aspecto (clase 3) |
+| Clasificación de señales | CNN de `keras.applications` con transfer learning (Reto 2, clase 5) |
 | Promedio y decisión | Operaciones aritméticas, comparaciones y memoria de estados |
 | Calibración fuera de línea | K-Means básico (clase 4) |
 

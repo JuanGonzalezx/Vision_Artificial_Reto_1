@@ -23,6 +23,9 @@ datos/grabaciones/
 # el video de demostracion para la sustentacion tambien
 !docs/media/*.mp4
 
+# Modelo CNN entrenado para las señales del Reto 2 (pesa; se regenera)
+modelos/*.keras
+
 # Configuración local de calibración
 config_local.json
 .DS_Store

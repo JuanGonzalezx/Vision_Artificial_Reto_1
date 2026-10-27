@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import cv2
 
+from . import clasificador as modulo_clasificador
 from . import linea as modulo_linea
 from . import senales as modulo_senales
 from .config import Config
@@ -45,6 +46,9 @@ def preparar(frame, config: Config):
     """
     if frame is None or getattr(frame, "ndim", None) != 3 or frame.shape[2] != 3:
         raise ValueError("El pipeline necesita un frame BGR de tres canales")
+    # Se comprueba antes de rotar: cv2.rotate sobre un frame vacío devuelve None.
+    if frame.shape[0] == 0 or frame.shape[1] == 0:
+        raise ValueError("El pipeline recibió un frame vacío")
     frame = rotar(frame, config.rotacion)
     alto, ancho = frame.shape[:2]
     if alto == 0 or ancho == 0:
@@ -86,7 +90,7 @@ def procesar_frame(frame, estado: Estado, config: Config,
     linea_lejana: ResultadoLinea = modulo_linea.detectar(roi_lejana, config)
 
     roi_senal, desplazamiento_senal = recortar(preparado, config.roi_senal)
-    senal: ResultadoSenal = modulo_senales.detectar(roi_senal, config)
+    senal: ResultadoSenal = detectar_senal(roi_senal, config)
 
     linea = combinar_franjas(linea, linea_lejana, config, desplazamiento)
 
@@ -125,6 +129,30 @@ def procesar_frame(frame, estado: Estado, config: Config,
     }
 
     return decision, depuracion
+
+
+_SIN_MODELO_AVISADO = False
+
+
+def detectar_senal(roi, config: Config) -> ResultadoSenal:
+    """Detecta la señal: con la CNN (Reto 2) o por color (respaldo del Reto 1).
+
+    `config.detector_senales == "cnn"` es el camino normal. Mientras no exista
+    el modelo entrenado (`modelos/senales.keras`) se avisa una vez y se cae al
+    detector por color, para no romper la evaluación sobre los clips viejos.
+    """
+    global _SIN_MODELO_AVISADO
+
+    if config.detector_senales == "cnn":
+        if modulo_clasificador.modelo_disponible(config):
+            return modulo_clasificador.detectar(roi, config)
+
+        if not _SIN_MODELO_AVISADO:
+            _SIN_MODELO_AVISADO = True
+            print(f"[senales] No hay modelo en '{config.ruta_modelo_senales}': uso el detector "
+                  f"por color. Copia ahi el .keras entrenado para activar la CNN.")
+
+    return modulo_senales.detectar(roi, config)
 
 
 def senal_sobre_franja(senal: ResultadoSenal, desplazamiento_senal: int, alto: int,

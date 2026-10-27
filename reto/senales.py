@@ -121,6 +121,56 @@ def candidatos_en_mascara(mascara, tipo: str, config: Config) -> list[dict]:
     return encontrados
 
 
+def mascara_color_saliente(roi, config: Config):
+    """Máscara de color fuerte (rojo, verde o ámbar) en un solo rango (clases 1 y 2).
+
+    Para *proponer* dónde puede haber una señal basta con la saturación; la
+    clase concreta la decide la CNN (`reto/clasificador.py`). Es más simple que
+    mantener un rango por color y una forma por señal.
+    """
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    mascara = cv2.inRange(hsv, np.array(config.hsv_saliente[0]), np.array(config.hsv_saliente[1]))
+    return _limpiar(mascara, config)
+
+
+def proponer_candidatos(roi, config: Config) -> tuple[list[dict], np.ndarray]:
+    """Regiones donde podría haber una señal, para que la CNN las clasifique.
+
+    Devuelve las cajas candidatas (las de mayor área primero, que son las más
+    cercanas) y la máscara usada, que el mosaico dibuja para calibrar. Filtra
+    por área y relación de aspecto, igual que `candidatos_en_mascara`.
+    """
+    mascara = mascara_color_saliente(roi, config)
+    contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidatos = []
+
+    for contorno in contornos:
+        area = cv2.contourArea(contorno)
+
+        if area < config.area_minima_candidato_senal:
+            continue
+
+        x, y, ancho, alto = cv2.boundingRect(contorno)
+
+        if alto == 0:
+            continue
+
+        minima, maxima = config.relacion_aspecto_senal
+
+        if not minima <= ancho / alto <= maxima:
+            continue
+
+        candidatos.append({
+            "caja": (x, y, ancho, alto),
+            "area": float(area),
+            "centro": (x + ancho // 2, y + alto // 2),
+            "contorno": contorno,
+        })
+
+    candidatos.sort(key=lambda candidato: candidato["area"], reverse=True)
+    return candidatos[:config.max_candidatos_senal], mascara
+
+
 def detectar(roi, config: Config) -> ResultadoSenal:
     """Busca un octágono rojo o verde en la ROI recibida.
 

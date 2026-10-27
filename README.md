@@ -4,6 +4,8 @@ Visión Artificial en Tiempo Real · Universidad de Caldas · 2026-2
 
 El programa recibe imágenes de una webcam, un celular por IP o un archivo, detecta la línea y las señales PARE/SIGA, y produce una decisión de movimiento. Usa las técnicas del curso: HSV, máscaras, morfología y contornos; K-Means propone calibraciones fuera del procesamiento en tiempo real.
 
+**Reto 2 (en curso):** el reconocimiento de las cuatro señales —PARE, SIGA, ZONA ESCOLAR y VELOCIDAD 60— pasa por una **CNN** entrenada con el material de clase (`5_cnns/`). La localización es híbrida: el color propone dónde mirar y la CNN decide qué señal es. Falta entrenar/entrenar-comparar los modelos y agregar los comportamientos de velocidad al control. Ver la [decisión 0010](docs/decisiones/0010-clasificador-cnn.md).
+
 **Estado al 29 de septiembre:** percepción, control, captura, HUD y grabación integrados, y el pipeline ya corre en vivo con el celular. Las salidas disponibles son consola, CSV y el robot (`reto/actuador_robot.py`, por Bluetooth o puerto serie). Falta la validación física con el mBot; no se modifica Arduino ni la electrónica.
 
 - [**El algoritmo etapa por etapa, y por qué así**](docs/algoritmo.md)
@@ -103,7 +105,8 @@ reto/config.py           Parámetros y calibración JSON
 reto/camara.py           Apertura de webcam, URL o archivo y autenticación
 reto/pipeline.py         Orden del procesamiento por frame
 reto/linea.py            Máscara, contorno, centroide y desviación
-reto/senales.py          Color y propiedades de los contornos de señales
+reto/senales.py          Color y propiedades de los contornos de señales (respaldo)
+reto/clasificador.py     Clasificación de las señales con la CNN (Reto 2)
 reto/control.py          Máquina de estados, sin OpenCV
 reto/actuador.py         Consola/CSV e interfaz para futuros adaptadores
 reto/simulador.py        Puente HTTP con el simulador (--index): cámara y actuador a la vez
@@ -117,6 +120,9 @@ datos/clips/             Videos livianos de ensayo incluidos
 datos/frames/            Imágenes para calibración incluidas
 datos/originales/        Videos originales, ignorados por Git
 datos/grabaciones/       Salidas de ejecución y evaluación, ignoradas por Git
+datos/senales/           Recortes de las 4 señales, una carpeta por clase
+modelos/                 Modelo .keras entrenado para las señales (ignorado por Git)
+5_cnns/                  Material de clase: entrenamiento y comparación de CNN
 ```
 
 Los notebooks conservan ejemplos del profesor: algunos usan Colab o imágenes de internet y no son comandos del programa. Los apuntes de `docs/clases/` también mencionan demos externas de la carpeta de la materia. Para nuevos ensayos: guardar originales en `datos/originales/`, ejecutar `uv run python tools/preparar_videos.py`, evaluar y registrar los resultados en la bitácora.

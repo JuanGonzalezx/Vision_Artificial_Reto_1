@@ -16,6 +16,11 @@ from pathlib import Path
 # Rango de color en HSV de OpenCV: H 0-179, S 0-255, V 0-255.
 Rango = tuple[tuple[int, int, int], tuple[int, int, int]]
 
+# Modelos CNN del material de clase (5_cnns/cnn_trainer.py) que se pueden
+# integrar. El nombre elige el preprocesamiento en reto/clasificador.py y debe
+# coincidir con el que se usó al entrenar.
+MODELOS_SENALES = ("MobileNet", "ResNet50", "VGG16", "VGG19", "DenseNet121")
+
 
 @dataclass
 class Config:
@@ -92,6 +97,27 @@ class Config:
     congelar_con_senal: bool = True
     margen_senal_franja: float = 0.05  # fracción del alto alrededor de la señal
 
+    # --- Clasificador de señales con CNN (Reto 2) --------------------------
+    # Localización híbrida: el color propone regiones candidatas y la CNN
+    # clasifica cada recorte con las 4 señales del Reto 2. "color" recupera el
+    # detector del Reto 1 (que solo conoce PARE y SIGA).
+    detector_senales: str = "cnn"
+    ruta_modelo_senales: str = "modelos/senales.keras"
+    # Tiene que coincidir con lo usado al entrenar en 5_cnns: el nombre elige el
+    # preprocess_input y el tamaño el resize de entrada.
+    clase_modelo_senales: str = "MobileNet"      # la más rápida para tiempo real
+    tamano_entrada_senales: tuple[int, int] = (224, 224)
+    # Orden de salida de la CNN = sorted() de las carpetas del dataset, igual
+    # que en 5_cnns/cnn_trainer.py. Aquí se fija para no depender del disco.
+    clases_senales: tuple[str, ...] = ("PARE", "SIGA", "VELOCIDAD_60", "ZONA_ESCOLAR")
+    confianza_minima_senal: float = 0.6
+    max_candidatos_senal: int = 3                # se clasifican los 3 de mayor área
+    margen_candidato_senal: float = 0.15         # fracción del lado al recortar la caja
+    # Máscara para *proponer* regiones de color fuerte (rojo, verde, ámbar): la
+    # clase la decide la CNN, así que basta con encontrar dónde hay color.
+    hsv_saliente: Rango = ((0, 90, 60), (179, 255, 255))
+    area_minima_candidato_senal: int = 1500      # más bajo que area_minima_senal: aquí solo se propone
+
     # --- Control ----------------------------------------------------------
     zona_muerta: float = 0.12          # |desviación| menor que esto = seguir recto
     ganancia_giro: float = 1.2
@@ -147,10 +173,12 @@ class Config:
         enteros_positivos = (
             "ancho_proceso", "kernel_gauss", "kernel_morfologico",
             "frames_confirmacion_senal", "frames_para_buscar", "tiempo_limite_camara_ms",
+            "max_candidatos_senal",
         )
         enteros_no_negativos = (
             "area_minima_linea", "area_minima_senal", "iteraciones_apertura",
             "iteraciones_cierre", "suavizado_desviacion", "reintentos_camara",
+            "area_minima_candidato_senal",
         )
         for nombre in enteros_positivos + enteros_no_negativos:
             minimo = 1 if nombre in enteros_positivos else 0
@@ -163,7 +191,8 @@ class Config:
         for nombre in ("segundos_pare", "espera_entre_senales", "ganancia_giro", "pausa_reconexion_s"):
             _validar_numero(nombre, getattr(self, nombre), 0)
         for nombre in ("zona_muerta", "peso_linea_lejana", "circularidad_minima",
-                       "margen_senal_franja", "giro_para_frenar", "avance_en_curva"):
+                       "margen_senal_franja", "giro_para_frenar", "avance_en_curva",
+                       "confianza_minima_senal", "margen_candidato_senal"):
             _validar_numero(nombre, getattr(self, nombre), 0, 1)
         for nombre in ("umbral_curvatura", "curvatura_para_frenar"):
             _validar_numero(nombre, getattr(self, nombre), 0, 2)
@@ -194,7 +223,7 @@ class Config:
             if inferior > superior or inferior == 0:
                 raise ValueError(f"{nombre} debe tener límites positivos y ordenados")
 
-        for nombre in ("hsv_linea", "hsv_rojo_bajo", "hsv_rojo_alto", "hsv_verde"):
+        for nombre in ("hsv_linea", "hsv_rojo_bajo", "hsv_rojo_alto", "hsv_verde", "hsv_saliente"):
             inferior, superior = _validar_par(nombre, getattr(self, nombre))
             for limite in (inferior, superior):
                 if not isinstance(limite, (tuple, list)) or len(limite) != 3:
@@ -204,6 +233,20 @@ class Config:
                 _validar_numero(nombre, superior[canal], 0, maximo, entero=True)
                 if inferior[canal] > superior[canal]:
                     raise ValueError(f"{nombre} necesita límites HSV ordenados")
+
+        if self.detector_senales not in ("cnn", "color"):
+            raise ValueError("detector_senales debe ser 'cnn' o 'color'")
+        if self.clase_modelo_senales not in MODELOS_SENALES:
+            raise ValueError(f"clase_modelo_senales debe ser uno de {MODELOS_SENALES}")
+        if not isinstance(self.ruta_modelo_senales, str) or not self.ruta_modelo_senales:
+            raise ValueError("ruta_modelo_senales debe ser una ruta de texto")
+        if not isinstance(self.clases_senales, (tuple, list)) or not self.clases_senales \
+                or not all(isinstance(clase, str) for clase in self.clases_senales):
+            raise ValueError("clases_senales debe ser una lista de nombres de clase")
+
+        ancho_entrada, alto_entrada = _validar_par("tamano_entrada_senales", self.tamano_entrada_senales)
+        _validar_numero("tamano_entrada_senales", ancho_entrada, 1, entero=True)
+        _validar_numero("tamano_entrada_senales", alto_entrada, 1, entero=True)
 
     @classmethod
     def desde_json(cls, ruta: str | Path) -> "Config":

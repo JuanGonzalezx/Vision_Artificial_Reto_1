@@ -4,7 +4,7 @@ Este archivo manda sobre cómo se trabaja en este repo. `CLAUDE.md` apunta aquí
 
 ## Qué es esto
 
-El "cerebro" de un robot seguidor de línea para el reto 1 de Visión Artificial (UCaldas 2026-2). Lee la cámara en tiempo real, sigue la línea guía y obedece un octágono rojo (PARE) y uno verde (SIGA). Contexto completo en @README.md y @docs/arquitectura.md.
+El "cerebro" de un robot seguidor de línea para Visión Artificial (UCaldas 2026-2). Lee la cámara en tiempo real, sigue la línea guía y obedece las señales de tránsito. En el Reto 1 las señales PARE y SIGA se reconocían por color y forma; en el **Reto 2** las cuatro señales —PARE, SIGA, ZONA ESCOLAR y VELOCIDAD 60— se reconocen con una **CNN** (ver @reto/clasificador.py y @docs/decisiones/0010-clasificador-cnn.md). Contexto completo en @README.md y @docs/arquitectura.md.
 
 ## Reglas duras del reto
 
@@ -12,6 +12,7 @@ El "cerebro" de un robot seguidor de línea para el reto 1 de Visión Artificial
 
 - **Permitido:** operaciones aritméticas y lógicas, máscaras, espacios de color (RGB, HSV, CIELab), ROI, redimensionar y rotar, umbralización, segmentación por color, K-Means básico, morfología, suavizado, Canny, contornos y sus propiedades (área, perímetro, centroide, aproximación poligonal, relación de aspecto), identificación de formas simples.
 - **Prohibido:** redes neuronales, deep learning, modelos preentrenados, YOLO / SSD / Faster R-CNN, cascadas Haar, servicios externos de IA, y cualquier librería que detecte la línea o las señales por nosotros.
+- **Reto 2:** para el reconocimiento de las cuatro señales esta restricción se **reemplaza**: se usan las CNN de clase (`keras.applications` en @5_cnns/, ver @docs/reto/reto-2.md). La línea guía y el resto siguen con las técnicas del curso. Siguen prohibidos los detectores (YOLO/SSD) y las cascadas Haar.
 - Si algo parece necesitar una técnica que no está en la lista, **no la uses**: busca una alternativa con lo disponible, o déjalo anotado en la zona gris de ese documento para preguntarle al profesor.
 - Cada función que use una técnica dice en su docstring de qué clase sale. Eso es lo que se sustenta después.
 
@@ -21,7 +22,7 @@ Un frame entra, una `Decision` sale. Ver @docs/arquitectura.md. Lo esencial:
 
 - Los contratos entre módulos están en @reto/tipos.py. **No se cambian sin avisarle a los otros dos**, porque cada quien programa contra ellos.
 - Todos los umbrales van en @reto/config.py. **Ningún número mágico en la lógica.**
-- Un archivo por etapa: `camara`, `linea`, `senales`, `control`, `pipeline`, `overlay`.
+- Un archivo por etapa: `camara`, `linea`, `senales` (color, respaldo), `clasificador` (CNN, Reto 2), `control`, `pipeline`, `overlay`.
 - `control.py` no usa OpenCV: es lógica pura y se prueba con `tools/probar_control.py`.
 - La decisión sale por un **actuador** (@reto/actuador.py): consola, CSV, simulador o robot. El simulador de Daniel se conecta ahí, sin tocar el control (ver @docs/flujo-de-pruebas.md y @docs/decisiones/0003-simulador-y-actuador.md).
 
@@ -30,7 +31,7 @@ Un frame entra, una `Decision` sale. Ver @docs/arquitectura.md. Lo esencial:
 | Archivo | Dueño |
 |---|---|
 | `reto/camara.py`, `main.py` | Santiago |
-| `reto/pipeline.py`, `reto/senales.py` | Daniel |
+| `reto/pipeline.py`, `reto/senales.py`, `reto/clasificador.py` | Daniel |
 | `reto/linea.py`, `reto/control.py`, `docs/` | Juan David |
 | `reto/tipos.py`, `reto/config.py` | los tres, de común acuerdo |
 
@@ -65,7 +66,7 @@ El firmware del mBot es del profesor y **no se toca**: solo le mandamos caracter
 
 ## Qué no hacer
 
-- No agregar dependencias sin discutirlo: cada librería nueva hay que justificarla frente a las restricciones del reto.
+- No agregar dependencias sin discutirlo: cada librería nueva hay que justificarla frente a las restricciones del reto (`tensorflow` se agregó para la CNN del Reto 2, ver decisión 0010).
 - No subir videos pesados: los originales van a `datos/originales/` (ignorado) y al repo solo entran los clips livianos y los frames que genera `tools/preparar_videos.py`.
 - No meter los notebooks pesados del profesor al repo: van limpios (`tools/notebooks.py`).
 - No dejar umbrales dentro de la lógica: van a `config.py`.

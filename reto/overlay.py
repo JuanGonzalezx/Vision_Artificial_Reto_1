@@ -16,6 +16,15 @@ VERDE = (0, 255, 0)
 AMARILLO = (0, 255, 255)
 ROJO = (0, 0, 255)
 BLANCO = (255, 255, 255)
+NARANJA = (0, 165, 255)
+
+# Un color por señal, para leer el HUD de un vistazo.
+COLORES_SENAL = {
+    "PARE": ROJO,
+    "SIGA": VERDE,
+    "ZONA_ESCOLAR": NARANJA,
+    "VELOCIDAD_60": BLANCO,
+}
 
 
 def _texto(imagen, texto: str, x: int, y: int, color=VERDE, escala: float = 0.6) -> None:
@@ -55,9 +64,11 @@ def dibujar(frame, linea: ResultadoLinea, senal: ResultadoSenal, decision: Decis
     _texto(salida, decision.razon, 10, 48, AMARILLO, 0.55)
 
     if senal.tipo:
-        color = ROJO if senal.tipo == "PARE" else VERDE
-        forma = "octagono" if senal.es_octagono else f"{senal.vertices} lados"
-        _texto(salida, f"{senal.tipo} ({forma}, area {senal.area:.0f})", 10, 71, color, 0.55)
+        color = COLORES_SENAL.get(senal.tipo, BLANCO)
+        # La CNN reporta su confianza; el detector por color, la forma.
+        detalle = (f"conf {senal.confianza:.2f}" if senal.confianza > 0
+                   else ("octagono" if senal.es_octagono else f"{senal.vertices} lados"))
+        _texto(salida, f"{senal.tipo} ({detalle}, area {senal.area:.0f})", 10, 71, color, 0.55)
 
     if congelada:
         _texto(salida, "rumbo congelado: senal sobre la linea", 10, 117, AMARILLO, 0.5)

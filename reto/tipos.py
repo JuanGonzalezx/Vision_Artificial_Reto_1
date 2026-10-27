@@ -48,10 +48,12 @@ class ResultadoLinea:
 
 @dataclass(frozen=True)
 class ResultadoSenal:
-    """Lo que devuelve `senales.detectar`.
+    """Lo que devuelve el detector de señales.
 
-    tipo: "PARE", "SIGA" o None. `area` sirve como medida de distancia:
-    entre más grande el octágono, más cerca está la señal.
+    tipo: la clase reconocida ("PARE", "SIGA", "ZONA_ESCOLAR", "VELOCIDAD_60")
+    o None. `area` sirve como medida de distancia: entre más grande la señal,
+    más cerca está. `confianza` es la probabilidad de la CNN (0.0 cuando la
+    clasificación vino del detector por color).
     """
 
     tipo: str | None = None
@@ -61,6 +63,7 @@ class ResultadoSenal:
     contorno: Any | None = None
     mascara: Any | None = None
     es_octagono: bool = False
+    confianza: float = 0.0
 
 
 @dataclass(frozen=True)

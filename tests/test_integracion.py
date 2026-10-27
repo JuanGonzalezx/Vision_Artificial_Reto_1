@@ -91,7 +91,7 @@ class PruebasSesion(unittest.TestCase):
         senal = ResultadoSenal(tipo="PARE", area=20000)
         with patch.object(main, "abrir_camara", return_value=captura), \
                 patch.object(main, "crear_actuador", return_value=self.actuador), \
-                patch("reto.pipeline.modulo_senales.detectar", return_value=senal):
+                patch("reto.pipeline.detectar_senal", return_value=senal):
             main.ejecutar(argumentos(), Config())
         registros = [c.args for c in self.actuador.aplicar.call_args_list[:-1]]
         paradas = [contexto["tiempo"] for decision, contexto in registros if decision.accion is Accion.PARAR]

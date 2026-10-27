@@ -10,6 +10,7 @@ dependencies = [
     "scikit-learn>=1.5",   # K-Means de la clase 4
     "matplotlib>=3.9",     # graficas de los notebooks del profesor
     "pyserial>=3.5",       # hablarle al mBot por /dev/tty.* en macOS
+    "tensorflow>=2.22.0rc0",
 ]
 
 [tool.uv]
