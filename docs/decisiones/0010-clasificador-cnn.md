@@ -50,6 +50,46 @@ las CNN de clase (Reto 2).
 - **Detector de objetos (YOLO/SSD)**: fuera de las arquitecturas de clase y de
   las técnicas permitidas.
 
+## Resultados (2026-10-27)
+
+Dataset: 178 recortes de las 4 señales (PARE 43, SIGA 45, VELOCIDAD_60 45,
+ZONA_ESCOLAR 45), en `datos/senales/`. Entrenamiento con `5_cnns/cnn_trainer.py`
+vía `tools/entrenar_senales.py` (transfer learning, base congelada, 50 épocas
+máximo con early stopping, split 70/20/10 con `seed=42`).
+
+| Modelo | val_loss | accuracy (test) | F1 macro |
+|---|---|---|---|
+| ResNet50 | 0.0055 | 1.00 | 1.00 |
+| **MobileNet** | 0.0079 | 1.00 | 1.00 |
+| VGG16 | 0.0349 | 1.00 | 1.00 |
+| VGG19 | 0.0400 | 1.00 | 1.00 |
+| DenseNet121 | 0.0786 | 1.00 | 1.00 |
+
+Los cinco aciertan todo en el test, así que el desempate es `val_loss`. Por
+`val_loss` los dos mejores son ResNet50 y MobileNet; se integra **MobileNet** por
+ser el más liviano (tiempo de respuesta). El elegido se copia a
+`modelos/senales.keras`.
+
+Hallazgos que cambiaron el código:
+
+- **RGB, no BGR.** El entrenamiento decodifica con `tf.image.decode_image` (RGB);
+  OpenCV trabaja en BGR. Sin convertir, el PARE se clasificaba como SIGA. Se
+  convierte antes del `preprocess_input` (`clasificador.clasificar`). Con el
+  arreglo: 178/178 en el dataset.
+- **Máscara de la SIGA.** El verde de la señal es H≈86-87 (verde azulado), fuera
+  del rango del Reto 1 (62-85). Se amplió `hsv_verde` hasta 95.
+- **Anillo del VELOCIDAD_60.** El anillo rojo es delgado y el desenfoque de
+  `preparar` lo parte. La máscara de candidatos ahora **dilata una vez y cierra,
+  sin abrir**; con apertura el anillo desaparecía.
+- **Chasis del robot.** Una máscara de "cualquier color saturado" enganchaba el
+  chasis azul (y, con fotos antiguas, las baterías). Con los colores de las
+  señales (rojo, verde y amarillo) el chasis queda fuera.
+
+Salvedad: el conjunto de prueba tiene 18 imágenes y las fotos de una misma
+sesión son parecidas; la exactitud 1.00 no es una medida fuerte. Para números
+honestos conviene separar por tandas (no partir fotos casi idénticas entre
+train/val/test), como pide el reto.
+
 ## Consecuencias
 - Falta lo demás del Reto 2: entrenar y comparar arquitecturas, elegir los dos
   mejores, entrenar una clase "fondo" para descartar candidatos falsos, y los

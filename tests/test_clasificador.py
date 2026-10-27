@@ -17,6 +17,7 @@ import numpy as np
 from reto import clasificador
 from reto.config import Config
 from reto.pipeline import detectar_senal, procesar_frame
+from reto.senales import proponer_candidatos
 from reto.tipos import Estado, ResultadoSenal
 
 
@@ -64,6 +65,26 @@ class PruebasDeteccionCNN(unittest.TestCase):
 
         self.assertEqual(senal.tipo, "SIGA")
         self.assertAlmostEqual(senal.confianza, 0.8)
+
+
+class PruebasCandidatos(unittest.TestCase):
+    def test_encuentra_el_anillo_rojo_delgado_de_velocidad_60(self):
+        # El desenfoque adelgaza el anillo; la máscara lo reconecta y no lo descarta.
+        roi = np.zeros((200, 200, 3), np.uint8)
+        cv2.circle(roi, (100, 100), 60, (0, 0, 255), 8)
+
+        candidatos, _ = proponer_candidatos(roi, Config())
+
+        self.assertTrue(candidatos)
+        self.assertGreater(candidatos[0]["caja"][2], 100)  # cubre el anillo, no un trazo
+
+    def test_ignora_el_azul_del_chasis(self):
+        roi = np.full((200, 200, 3), 230, np.uint8)
+        cv2.rectangle(roi, (40, 40), (160, 160), (255, 0, 0), -1)  # azul, en BGR
+
+        candidatos, _ = proponer_candidatos(roi, Config())
+
+        self.assertEqual(candidatos, [])
 
 
 class PruebasDispatch(unittest.TestCase):
@@ -117,7 +138,7 @@ class PruebasConfigClasificador(unittest.TestCase):
             {"area_minima_candidato_senal": -1},
             {"tamano_entrada_senales": (0, 224)},
             {"clases_senales": ()},
-            {"hsv_saliente": ((10, 90, 60), (0, 255, 255))},
+            {"hsv_amarillo": ((35, 90, 90), (18, 255, 255))},
         )
         for caso in casos:
             with self.subTest(caso=caso), self.assertRaises(ValueError):

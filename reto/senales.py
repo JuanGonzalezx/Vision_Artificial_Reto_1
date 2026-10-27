@@ -73,19 +73,23 @@ def _limpiar(mascara, config: Config):
     return mascara
 
 
-def mascaras_de_color(roi, config: Config) -> dict:
-    """Una máscara por señal: roja (dos rangos de H) y verde.
+def _mascara_roja(hsv, config: Config):
+    """Rojo en los dos extremos del círculo de H, unidos con OR (clase 2)."""
+    roja = cv2.inRange(hsv, np.array(config.hsv_rojo_bajo[0]), np.array(config.hsv_rojo_bajo[1]))
+    return roja | cv2.inRange(hsv, np.array(config.hsv_rojo_alto[0]), np.array(config.hsv_rojo_alto[1]))
 
-    El rojo está partido en los dos extremos del círculo de H, así que se
-    unen los dos rangos con un OR (clase 2).
-    """
+
+def _mascara_verde(hsv, config: Config):
+    """Verde de la señal SIGA (clase 2)."""
+    return cv2.inRange(hsv, np.array(config.hsv_verde[0]), np.array(config.hsv_verde[1]))
+
+
+def mascaras_de_color(roi, config: Config) -> dict:
+    """Una máscara por señal: roja (dos rangos de H) y verde."""
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
-    roja = cv2.inRange(hsv, np.array(config.hsv_rojo_bajo[0]), np.array(config.hsv_rojo_bajo[1]))
-    roja |= cv2.inRange(hsv, np.array(config.hsv_rojo_alto[0]), np.array(config.hsv_rojo_alto[1]))
-    verde = cv2.inRange(hsv, np.array(config.hsv_verde[0]), np.array(config.hsv_verde[1]))
-
-    return {"PARE": _limpiar(roja, config), "SIGA": _limpiar(verde, config)}
+    return {"PARE": _limpiar(_mascara_roja(hsv, config), config),
+            "SIGA": _limpiar(_mascara_verde(hsv, config), config)}
 
 
 def candidatos_en_mascara(mascara, tipo: str, config: Config) -> list[dict]:
@@ -121,16 +125,24 @@ def candidatos_en_mascara(mascara, tipo: str, config: Config) -> list[dict]:
     return encontrados
 
 
-def mascara_color_saliente(roi, config: Config):
-    """Máscara de color fuerte (rojo, verde o ámbar) en un solo rango (clases 1 y 2).
+def mascara_senales(roi, config: Config):
+    """Máscara con los colores de las señales: rojo, verde y amarillo (clases 1 y 2).
 
-    Para *proponer* dónde puede haber una señal basta con la saturación; la
-    clase concreta la decide la CNN (`reto/clasificador.py`). Es más simple que
-    mantener un rango por color y una forma por señal.
+    Sirve para *proponer* dónde hay una señal; la clase concreta la decide la
+    CNN (`reto/clasificador.py`). El azul del chasis del robot queda fuera, que
+    era lo que enganchaba una máscara de "cualquier color fuerte".
+
+    Se dilata una vez y se cierra, sin abrir: el anillo rojo del VELOCIDAD_60 es
+    delgado y el desenfoque de `preparar` lo parte en trazos sueltos cuando la
+    señal está lejos. La dilatación lo reconecta; una apertura, en cambio, se lo
+    come. El ruido fino igual se descarta por área en `proponer_candidatos`.
     """
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-    mascara = cv2.inRange(hsv, np.array(config.hsv_saliente[0]), np.array(config.hsv_saliente[1]))
-    return _limpiar(mascara, config)
+    amarilla = cv2.inRange(hsv, np.array(config.hsv_amarillo[0]), np.array(config.hsv_amarillo[1]))
+    unida = _mascara_roja(hsv, config) | _mascara_verde(hsv, config) | amarilla
+    kernel = np.ones((config.kernel_morfologico, config.kernel_morfologico), np.uint8)
+    unida = cv2.dilate(unida, kernel, iterations=1)
+    return cv2.morphologyEx(unida, cv2.MORPH_CLOSE, kernel, iterations=config.iteraciones_cierre)
 
 
 def proponer_candidatos(roi, config: Config) -> tuple[list[dict], np.ndarray]:
@@ -140,7 +152,7 @@ def proponer_candidatos(roi, config: Config) -> tuple[list[dict], np.ndarray]:
     cercanas) y la máscara usada, que el mosaico dibuja para calibrar. Filtra
     por área y relación de aspecto, igual que `candidatos_en_mascara`.
     """
-    mascara = mascara_color_saliente(roi, config)
+    mascara = mascara_senales(roi, config)
     contornos, _ = cv2.findContours(mascara, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     candidatos = []
 

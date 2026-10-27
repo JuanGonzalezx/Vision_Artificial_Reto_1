@@ -69,17 +69,26 @@ def cargar_modelo(config: Config):
 
 
 def clasificar(recorte, config: Config) -> tuple[str, float]:
-    """Clase y confianza del recorte BGR recibido (una de `config.clases_senales`)."""
+    """Clase y confianza del recorte BGR recibido (una de `config.clases_senales`).
+
+    Se pasa a RGB antes del `preprocess_input`: el entrenamiento decodifica con
+    `tf.image.decode_image` (RGB), mientras que OpenCV trabaja en BGR.
+    """
     ancho, alto = config.tamano_entrada_senales
-    imagen = cv2.resize(recorte, (ancho, alto)).astype(np.float32)
+    imagen = cv2.cvtColor(recorte, cv2.COLOR_BGR2RGB)
+    imagen = cv2.resize(imagen, (ancho, alto)).astype(np.float32)
     imagen = _preproceso(config.clase_modelo_senales)(imagen)
     probabilidades = cargar_modelo(config).predict(imagen[None, ...], verbose=0)[0]
     indice = int(np.argmax(probabilidades))
     return config.clases_senales[indice], float(probabilidades[indice])
 
 
-def _recorte(roi, caja: tuple[int, int, int, int], margen: float):
-    """Recorta la caja con un margen, sin salirse de la ROI."""
+def recorte_con_margen(roi, caja: tuple[int, int, int, int], margen: float):
+    """Recorta la caja con un margen, sin salirse de la imagen.
+
+    Lo usan el detector (antes de clasificar) y `tools/preparar_senales.py`, para
+    que el entrenamiento y la inferencia recorten igual la señal.
+    """
     x, y, ancho, alto = caja
     mx = int(ancho * margen)
     my = int(alto * margen)
@@ -100,7 +109,7 @@ def detectar(roi, config: Config) -> ResultadoSenal:
     mejor = None
 
     for candidato in candidatos:
-        recorte = _recorte(roi, candidato["caja"], config.margen_candidato_senal)
+        recorte = recorte_con_margen(roi, candidato["caja"], config.margen_candidato_senal)
 
         if recorte.size == 0:
             continue

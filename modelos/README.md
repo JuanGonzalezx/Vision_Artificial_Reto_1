@@ -12,6 +12,16 @@ regenera con el material de clase.
    `../datos/senales` (no se modifica el código del profesor).
 3. Copiar el `.keras` elegido aquí como `senales.keras`.
 
+## Modelos ya entrenados
+
+Resultados en `modelos/entrenamiento/senales_reto2/` (matriz de confusión, curva
+de pérdida y reporte por arquitectura). Los dos mejores por `val_loss` son
+ResNet50 y MobileNet; el pipeline integra **MobileNet** (el más liviano):
+
+```bash
+cp modelos/entrenamiento/senales_reto2/MobileNet/MobileNet.keras modelos/senales.keras
+```
+
 ## Cómo lo usa el pipeline
 
 - `config.ruta_modelo_senales` = `modelos/senales.keras` (por defecto).

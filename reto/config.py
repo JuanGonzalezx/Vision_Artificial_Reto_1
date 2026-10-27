@@ -71,9 +71,12 @@ class Config:
     # rango bajo va angosto y la ROI deja el carro por fuera.
     hsv_rojo_bajo: Rango = ((0, 120, 80), (8, 255, 255))
     hsv_rojo_alto: Rango = ((165, 120, 80), (179, 255, 255))
-    # Señal verde medida: H≈70, S≈130-200, V≈90-142. El límite inferior en 62
-    # evita el verde amarillento del carro (H≈41-61).
-    hsv_verde: Rango = ((62, 90, 60), (85, 255, 255))
+    # Señal SIGA medida en los recortes del Reto 2: H≈86-87 (verde azulado). El
+    # límite inferior en 62 evita el verde amarillento del carro (H≈41-61).
+    hsv_verde: Rango = ((62, 90, 60), (95, 255, 255))
+    # Rombos amarillos (ZONA ESCOLAR). Hasta 35 para no tocar el verde
+    # amarillento del carro (H≈41-61) ni el amarillo pálido del piso.
+    hsv_amarillo: Rango = ((18, 90, 90), (35, 255, 255))
     # Las señales de los videos dan 34.000-39.000 px cuando están cerca; con
     # 3.000 se alcanzan a ver desde más lejos, y luego se decide con el área
     # a partir de cuándo obedecer.
@@ -113,9 +116,8 @@ class Config:
     confianza_minima_senal: float = 0.6
     max_candidatos_senal: int = 3                # se clasifican los 3 de mayor área
     margen_candidato_senal: float = 0.15         # fracción del lado al recortar la caja
-    # Máscara para *proponer* regiones de color fuerte (rojo, verde, ámbar): la
-    # clase la decide la CNN, así que basta con encontrar dónde hay color.
-    hsv_saliente: Rango = ((0, 90, 60), (179, 255, 255))
+    # Para *proponer* regiones basta con los colores de las señales
+    # (`mascara_senales`: rojo, verde y amarillo); la clase la decide la CNN.
     area_minima_candidato_senal: int = 1500      # más bajo que area_minima_senal: aquí solo se propone
 
     # --- Control ----------------------------------------------------------
@@ -223,7 +225,7 @@ class Config:
             if inferior > superior or inferior == 0:
                 raise ValueError(f"{nombre} debe tener límites positivos y ordenados")
 
-        for nombre in ("hsv_linea", "hsv_rojo_bajo", "hsv_rojo_alto", "hsv_verde", "hsv_saliente"):
+        for nombre in ("hsv_linea", "hsv_rojo_bajo", "hsv_rojo_alto", "hsv_verde", "hsv_amarillo"):
             inferior, superior = _validar_par(nombre, getattr(self, nombre))
             for limite in (inferior, superior):
                 if not isinstance(limite, (tuple, list)) or len(limite) != 3:
