@@ -1,0 +1,6 @@
+modelo,experimento,max_epochs,epoca_parada,mejor_epoca,train_loss,val_loss,accuracy,f1_ponderado,f1_macro,precision_macro,recall_macro,grafica_perdida,grafica_confusion,archivo_reporte
+VGG16,senales_reto2,50,36,31,0.049894627183675766,0.018443627282977104,1.0,1.0,1.0,1.0,1.0,perdida_VGG16.png,matriz_confusion_VGG16.png,reporte_clasificacion_VGG16.txt
+VGG19,senales_reto2,50,41,36,0.027082450687885284,0.02263045497238636,1.0,1.0,1.0,1.0,1.0,perdida_VGG19.png,matriz_confusion_VGG19.png,reporte_clasificacion_VGG19.txt
+MobileNet,senales_reto2,50,50,50,0.00299131590873003,0.0024119187146425247,1.0,1.0,1.0,1.0,1.0,perdida_MobileNet.png,matriz_confusion_MobileNet.png,reporte_clasificacion_MobileNet.txt
+ResNet50,senales_reto2,50,50,50,0.002110106870532036,0.001160640036687255,1.0,1.0,1.0,1.0,1.0,perdida_ResNet50.png,matriz_confusion_ResNet50.png,reporte_clasificacion_ResNet50.txt
+DenseNet121,senales_reto2,50,50,50,0.014084648340940475,0.013548855669796467,1.0,1.0,1.0,1.0,1.0,perdida_DenseNet121.png,matriz_confusion_DenseNet121.png,reporte_clasificacion_DenseNet121.txt
