@@ -371,6 +371,36 @@
   const redSign = { pos: signPos(redIdx), r: 20, zone: 70 };
   const greenSign = { pos: signPos(greenIdx), r: 20, zone: 70 };
 
+  // ---- señales con las fotos reales del dataset (senales/<clase>_<k>.jpg, copiadas de cnn/dataset) ----
+  // Orden en la vuelta: SIGA -> ZONA ESCOLAR -> VELOCIDAD 60 -> PARE. Cada vuelta se sortea otra foto
+  // de la clase, así el pipeline ve variaciones de ángulo, luz y desenfoque como en la pista.
+  const FOTOS_POR_CLASE = 5;
+  const SIGNS = [
+    { clase:'siga',         color:'#3fa65a', label:'SIGA',  idx:greenIdx },
+    { clase:'zona_escolar', color:'#e8c23a', label:'ZONA',  idx:Math.floor(L*0.30) },
+    { clase:'velocidad_60', color:'#d6453f', label:'60',    idx:Math.floor(L*0.56) },
+    { clase:'pare',         color:'#d6453f', label:'PARE',  idx:redIdx },
+  ].map(sg=>{
+    const pos = signPos(sg.idx);
+    const t = tangentAt(sg.idx);
+    sg.pos = pos;
+    sg.heading = Math.atan2(t[1], t[0]);   // la foto queda "derecha" para quien avanza por la línea
+    sg.fotos = Array.from({length:FOTOS_POR_CLASE}, (_,k)=>{
+      const im = new Image(); im.src = `senales/${sg.clase}_${k}.jpg`; return im;
+    });
+    sg.foto = sg.fotos[0];
+    sg.jitter = 0;
+    return sg;
+  });
+  function sortearSenales(){
+    for(const sg of SIGNS){
+      sg.foto = sg.fotos[Math.floor(Math.random()*sg.fotos.length)];
+      sg.jitter = (Math.random()-0.5)*0.35;   // ±10°, la pegatina nunca queda perfecta
+    }
+  }
+  sortearSenales();
+  const SIGN_SIZE = 34;   // lado de la foto en unidades del mundo (la cinta mide 10)
+
   // ---- car state ----
   const car = {
     x: track[0][0], y: track[0][1],
@@ -453,6 +483,7 @@
     derailCount = 0; violCount = 0; mode='playing';
     redState='pending'; redInZone=false; redStopTimer=0;
     greenState='pending'; greenInZone=false;
+    sortearSenales();
     overlay.classList.remove('show');
   }
 
@@ -519,6 +550,7 @@
       lapCount++;
       redState='pending'; redStopTimer=0;
       greenState='pending';
+      sortearSenales();
     }
 
     if(near.dist > ROAD_W/2 - 4){
@@ -624,10 +656,22 @@
     }
   }
 
-  function drawFloorSign(sign, color, label, zoneColor){
+  function drawFloorSign(sign){
     const p = proj(sign.pos[0], sign.pos[1]);
-    if(p.v < 0 || p.s < 0.08) return;
+    if(p.v < -SIGN_SIZE || p.s < 0.08) return;
     const s = p.s;
+    const f = sign.foto;
+    if(f && f.complete && f.naturalWidth){
+      // la foto gira con el mundo: su rotación en pantalla es (rumbo de la señal - rumbo del carro)
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(sign.heading + sign.jitter - car.angle);
+      const side = SIGN_SIZE*s;
+      ctx.drawImage(f, -side/2, -side/2, side, side);
+      ctx.restore();
+      return;
+    }
+    const color = sign.color, label = sign.label;
 
     ctx.save();
     ctx.translate(p.x, p.y);
@@ -760,8 +804,8 @@
 
     const idxs = windowIndices();
     drawGround(idxs);
-    drawFloorSign(redSign, '#d6453f', 'PARE', '#d6453f');
-    drawFloorSign(greenSign, '#3fa65a', 'SIGA', '#3fa65a');
+    // de lejos a cerca, para que las cercanas tapen a las lejanas
+    [...SIGNS].sort((a,b)=>proj(b.pos[0],b.pos[1]).v - proj(a.pos[0],a.pos[1]).v).forEach(drawFloorSign);
     drawCar();
     ctx.drawImage(vignette,0,0);
     drawHUD();
