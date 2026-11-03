@@ -22,7 +22,7 @@ El equipo usa **Python 3.14** y las versiones fijadas en `uv.lock` (incluido Ope
 
 ```bash
 git clone git@github.com:JuanGonzalezx/Vision_Artificial_Reto_1.git
-cd Vision_Artificial_Reto_1
+cd Vision_Artificial_Reto_1/reto_2
 uv sync --locked
 uv run python tools/probar_control.py
 uv run python -m unittest discover -s tests -v
