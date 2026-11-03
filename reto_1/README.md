@@ -19,7 +19,7 @@ Las versiones quedan fijadas en `uv.lock` (OpenCV 5, NumPy, scikit-learn, matplo
 
 ## Las 4 formas de correrlo
 
-Todos los comandos se ejecutan dentro de `reto_1/`. Se sale con `q` o `Ctrl+C`.
+Todos los comandos se ejecutan dentro de `reto_1/`. Se sale con `q`, `Esc` o `Ctrl+C`.
 
 ### 1. Video (sin hardware)
 
@@ -54,7 +54,7 @@ uv run main.py --fuente http://192.168.1.50:8081/ --usuario usuario --contrasena
 uv run main.py --fuente http://192.168.1.50:8081/ --rotar 90 --roi-linea 0.78 1.00 --grande
 ```
 
-También se leen `CAMARA_URL`, `CAMARA_USUARIO` y `CAMARA_CONTRASENA`; los argumentos tienen prioridad. Para el montaje con celular hay un perfil listo: `--config config_celular.json`. Si se pierde la transmisión, intenta reconectar. En macOS hay que dar permiso de cámara a la aplicación que ejecuta Python.
+También se leen `CAMARA_URL`, `CAMARA_USUARIO` y `CAMARA_CONTRASENA`; los argumentos tienen prioridad. Para el montaje con celular sin el robot en cuadro hay un perfil listo: `--config config_celular.json`. Si se pierde la transmisión, intenta reconectar. En macOS hay que dar permiso de cámara a la aplicación que ejecuta Python.
 
 ### 3. Simulador (lazo cerrado en el navegador)
 
@@ -77,7 +77,7 @@ uv run main.py --fuente datos/clips/rutaIdeal/video1.mp4 --robot-simulado
 # Robot real, Linux/Windows, por Bluetooth (MAC del mBot)
 uv run main.py --fuente http://192.168.1.50:8081/ --robot-mac 00:1B:10:21:2C:1B
 
-# Robot real, macOS, por puerto serie
+# Robot real por puerto serie (macOS: /dev/tty.<nombre>; Windows: COMn)
 uv run main.py --fuente http://192.168.1.50:8081/ --robot-puerto /dev/tty.Makeblock-ELETSPP
 ```
 
@@ -106,7 +106,7 @@ Los rangos HSV y las ROI vienen calibrados con los videos del profesor: el carro
 | `configs/video1.json` | Videos del profesor |
 | `configs/video1-kmeans.json` | Rangos propuestos con K-Means |
 | `configs/simulador.json` | Cámara del simulador (`--index`) |
-| `config_celular.json` | Celular en el soporte |
+| `config_celular.json` | Celular en el soporte, sin el robot en cuadro |
 
 La calibración interactiva (`tools/calibrar*.py`) y la evaluación sobre clips (`tools/evaluar*.py`) se retiraron de esta carpeta; están en el commit `2e93b71`.
 
@@ -140,7 +140,7 @@ docs/                    Documentación del reto (abajo)
 - [El algoritmo etapa por etapa, y por qué así](docs/algoritmo.md)
 - [Arquitectura y diagramas](docs/arquitectura.md)
 - [Cómo hablarle al robot](docs/robot.md)
-- [Cómo probar y comparar resultados](docs/flujo-de-pruebas.md)
+- [Cómo probar y comparar resultados](docs/flujo-de-pruebas.md) (usa `tools/` y `tests/`, ya retirados)
 - [Especificación](docs/reto/especificacion.md), [rúbrica](docs/reto/rubrica.md) y [técnicas permitidas](docs/reto/tecnicas-permitidas.md)
 - [Preguntas para la sustentación](docs/preguntas-del-profe.md) y [guion de la demostración](docs/guion-sustentacion.md)
 - [Bitácora y mediciones](docs/bitacora.md) y [dónde quedó contra la rúbrica](docs/estado-vs-rubrica.md)
