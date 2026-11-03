@@ -8,20 +8,20 @@ Regla del reto: **solo se usa lo visto en el curso**. Esta tabla es la fuente pa
 
 | Técnica | Función típica | Dónde se vio | Apuntes |
 |---|---|---|---|
-| Imagen como matriz, canales BGR | `img[y, x]`, `cv2.split` | Clase 1 / notebook 1 | [clase1](../clases/clase1.md) |
-| Espacios de color RGB, HSV, CIELab | `cv2.cvtColor` | Clase 1 / notebook 2 | [clase1](../clases/clase1.md) |
-| Operaciones aritméticas (resta, absdiff) | `cv2.absdiff`, `cv2.subtract` | Clase 2 / notebook 3 | [clase2](../clases/clase2.md) |
-| Operaciones lógicas y máscaras | `cv2.bitwise_and`, `mask=` | Clase 2 / notebook 3 | [clase2](../clases/clase2.md) |
-| Umbralización | `cv2.threshold` | Clase 2 / notebook 3 | [clase2](../clases/clase2.md) |
-| Segmentación por color | `cv2.inRange` | Clase 2 | [clase2](../clases/clase2.md) |
-| Recorte de ROI | `img[y1:y2, x1:x2]` | Clase 1 | [clase1](../clases/clase1.md) |
-| Redimensionar y rotar | `cv2.resize`, `cv2.rotate`, `warpAffine` | Clase 1 | [clase1](../clases/clase1.md) |
-| Suavizado / reducción de ruido | `cv2.GaussianBlur` | Clase 3 | [clase3](../clases/clase3.md) |
-| Detección de bordes | `cv2.Canny` | Clase 3 | [clase3](../clases/clase3.md) |
-| Morfología (erosión, dilatación, apertura, cierre) | `cv2.erode`, `cv2.dilate`, `cv2.morphologyEx` | Clase 3 | [clase3](../clases/clase3.md) |
-| Contornos y sus propiedades | `cv2.findContours`, `contourArea`, `arcLength`, `moments` | Clase 3 | [clase3](../clases/clase3.md) |
-| Aproximación poligonal e identificación de formas | `cv2.approxPolyDP`, `cv2.boundingRect` | Clase 3 | [clase3](../clases/clase3.md) |
-| K-Means básico | `sklearn.cluster.KMeans` | Clase 4 / notebook 4 | [clase4](../clases/clase4.md) |
+| Imagen como matriz, canales BGR | `img[y, x]`, `cv2.split` | Clase 1 / notebook 1 | [clase1](../../compartido/clases/clase1.md) |
+| Espacios de color RGB, HSV, CIELab | `cv2.cvtColor` | Clase 1 / notebook 2 | [clase1](../../compartido/clases/clase1.md) |
+| Operaciones aritméticas (resta, absdiff) | `cv2.absdiff`, `cv2.subtract` | Clase 2 / notebook 3 | [clase2](../../compartido/clases/clase2.md) |
+| Operaciones lógicas y máscaras | `cv2.bitwise_and`, `mask=` | Clase 2 / notebook 3 | [clase2](../../compartido/clases/clase2.md) |
+| Umbralización | `cv2.threshold` | Clase 2 / notebook 3 | [clase2](../../compartido/clases/clase2.md) |
+| Segmentación por color | `cv2.inRange` | Clase 2 | [clase2](../../compartido/clases/clase2.md) |
+| Recorte de ROI | `img[y1:y2, x1:x2]` | Clase 1 | [clase1](../../compartido/clases/clase1.md) |
+| Redimensionar y rotar | `cv2.resize`, `cv2.rotate`, `warpAffine` | Clase 1 | [clase1](../../compartido/clases/clase1.md) |
+| Suavizado / reducción de ruido | `cv2.GaussianBlur` | Clase 3 | [clase3](../../compartido/clases/clase3.md) |
+| Detección de bordes | `cv2.Canny` | Clase 3 | [clase3](../../compartido/clases/clase3.md) |
+| Morfología (erosión, dilatación, apertura, cierre) | `cv2.erode`, `cv2.dilate`, `cv2.morphologyEx` | Clase 3 | [clase3](../../compartido/clases/clase3.md) |
+| Contornos y sus propiedades | `cv2.findContours`, `contourArea`, `arcLength`, `moments` | Clase 3 | [clase3](../../compartido/clases/clase3.md) |
+| Aproximación poligonal e identificación de formas | `cv2.approxPolyDP`, `cv2.boundingRect` | Clase 3 | [clase3](../../compartido/clases/clase3.md) |
+| K-Means básico | `sklearn.cluster.KMeans` | Clase 4 / notebook 4 | [clase4](../../compartido/clases/clase4.md) |
 
 Las propiedades de contorno que menciona el .docx —área, perímetro, **centroide**, aproximación poligonal y relación de aspecto— están todas permitidas. El centroide sale de los momentos: `M = cv2.moments(c)`, `cx = M["m10"] / M["m00"]`.
 

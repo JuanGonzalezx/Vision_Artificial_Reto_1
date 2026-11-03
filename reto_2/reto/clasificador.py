@@ -58,7 +58,7 @@ def cargar_modelo(config: Config):
         raise FileNotFoundError(
             f"No existe el modelo de señales en '{ruta}'. Entrénalo con el pipeline "
             f"de cnn sobre datos/senales/ y copia el .keras elegido ahí "
-            f"(ver docs/decisiones/0010-clasificador-cnn.md)."
+            f"(ver ../docs/decisiones/0010-clasificador-cnn.md)."
         )
 
     from keras import models

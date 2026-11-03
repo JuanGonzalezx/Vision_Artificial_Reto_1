@@ -4,17 +4,17 @@ Visión Artificial en Tiempo Real · Universidad de Caldas · 2026-2
 
 El programa recibe imágenes de una webcam, un celular por IP o un archivo, detecta la línea y las señales PARE/SIGA, y produce una decisión de movimiento. Usa las técnicas del curso: HSV, máscaras, morfología y contornos; K-Means propone calibraciones fuera del procesamiento en tiempo real.
 
-**Reto 2 (en curso):** el reconocimiento de las cuatro señales —PARE, SIGA, ZONA ESCOLAR y VELOCIDAD 60— pasa por una **CNN** entrenada con el material de clase (`cnn/`). La localización es híbrida: el color propone dónde mirar y la CNN decide qué señal es. Falta entrenar/entrenar-comparar los modelos y agregar los comportamientos de velocidad al control. Ver la [decisión 0010](docs/decisiones/0010-clasificador-cnn.md).
+**Reto 2 (en curso):** el reconocimiento de las cuatro señales —PARE, SIGA, ZONA ESCOLAR y VELOCIDAD 60— pasa por una **CNN** entrenada con el material de clase (`cnn/`). La localización es híbrida: el color propone dónde mirar y la CNN decide qué señal es. Falta entrenar/entrenar-comparar los modelos y agregar los comportamientos de velocidad al control. Ver la [decisión 0010](../docs/decisiones/0010-clasificador-cnn.md).
 
 **Estado al 29 de septiembre:** percepción, control, captura, HUD y grabación integrados, y el pipeline ya corre en vivo con el celular. Las salidas disponibles son consola, CSV y el robot (`reto/actuador_robot.py`, por Bluetooth o puerto serie). Falta la validación física con el mBot; no se modifica Arduino ni la electrónica.
 
-- [**El algoritmo etapa por etapa, y por qué así**](docs/algoritmo.md)
-- [Arquitectura y diagramas del sistema, algoritmo y estados](docs/arquitectura.md)
-- [Cómo probar y comparar resultados](docs/flujo-de-pruebas.md)
-- [Especificación](docs/reto/especificacion.md), [rúbrica](docs/reto/rubrica.md) y [técnicas permitidas](docs/reto/tecnicas-permitidas.md)
-- [Preguntas para la sustentación](docs/preguntas-del-profe.md) y [guion de la demostración](docs/guion-sustentacion.md)
-- [Bitácora y mediciones](docs/bitacora.md)
-- [Cómo hablarle al robot](docs/robot.md) y [dónde vamos contra la rúbrica](docs/estado-vs-rubrica.md)
+- [**El algoritmo etapa por etapa, y por qué así**](../docs/algoritmo.md)
+- [Arquitectura y diagramas del sistema, algoritmo y estados](../docs/arquitectura.md)
+- [Cómo probar y comparar resultados](../docs/flujo-de-pruebas.md)
+- [Especificación](../docs/reto/especificacion.md), [rúbrica](../docs/reto/rubrica.md) y [técnicas permitidas](../docs/reto/tecnicas-permitidas.md)
+- [Preguntas para la sustentación](../docs/preguntas-del-profe.md) y [guion de la demostración](../docs/guion-sustentacion.md)
+- [Bitácora y mediciones](../docs/bitacora.md)
+- [Cómo hablarle al robot](../docs/robot.md) y [dónde vamos contra la rúbrica](../docs/estado-vs-rubrica.md)
 
 ## Instalación y verificación
 

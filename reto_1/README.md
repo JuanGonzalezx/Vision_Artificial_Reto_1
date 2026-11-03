@@ -68,7 +68,7 @@ Abre `http://localhost:8765/index.html?puente=1` solo. Usa la calibración `conf
 
 ### 4. Robot mBot (real o simulado)
 
-El robot recibe los comandos `w`, `a`, `d`, `x` como pulsos (detalle en [docs/robot.md](docs/robot.md)). Se combina con cualquier fuente de imagen de las formas 1 o 2.
+El robot recibe los comandos `w`, `a`, `d`, `x` como pulsos (detalle en [docs/robot.md](../docs/robot.md)). Se combina con cualquier fuente de imagen de las formas 1 o 2.
 
 ```bash
 # Sin robot: imprime los comandos en lugar de enviarlos (para probar)
@@ -132,18 +132,18 @@ simulacion/index.html    Simulador de la pista
 configs/, config_celular.json   Calibraciones
 datos/clips/             Videos livianos de ensayo
 datos/grabaciones/       Salidas de --grabar (se crea sola; ignorada por Git)
-docs/                    Documentación del reto (abajo)
+../docs/                 Documentación (compartida en la raíz del repo, abajo)
 ```
 
 ## Documentación
 
-- [El algoritmo etapa por etapa, y por qué así](docs/algoritmo.md)
-- [Arquitectura y diagramas](docs/arquitectura.md)
-- [Cómo hablarle al robot](docs/robot.md)
-- [Cómo probar y comparar resultados](docs/flujo-de-pruebas.md) (usa `tools/` y `tests/`, ya retirados)
-- [Especificación](docs/reto/especificacion.md), [rúbrica](docs/reto/rubrica.md) y [técnicas permitidas](docs/reto/tecnicas-permitidas.md)
-- [Preguntas para la sustentación](docs/preguntas-del-profe.md) y [guion de la demostración](docs/guion-sustentacion.md)
-- [Bitácora y mediciones](docs/bitacora.md) y [dónde quedó contra la rúbrica](docs/estado-vs-rubrica.md)
+- [El algoritmo etapa por etapa, y por qué así](../docs/algoritmo.md)
+- [Arquitectura y diagramas](../docs/arquitectura-reto1.md)
+- [Cómo hablarle al robot](../docs/robot.md)
+- [Cómo probar y comparar resultados](../docs/flujo-de-pruebas.md) (usa `tools/` y `tests/`, ya retirados)
+- [Especificación](../docs/reto/especificacion.md), [rúbrica](../docs/reto/rubrica.md) y [técnicas permitidas](../docs/reto/tecnicas-permitidas.md)
+- [Preguntas para la sustentación](../docs/preguntas-del-profe.md) y [guion de la demostración](../docs/guion-sustentacion.md)
+- [Bitácora y mediciones](../docs/bitacora.md) y [dónde quedó contra la rúbrica](../docs/estado-vs-rubrica.md)
 
 ## Equipo
 
