@@ -16,8 +16,8 @@ import shutil
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-CARPETA_MATERIA = RAIZ.parents[1]          # .../visionArtificial
-DESTINO = RAIZ / "docs" / "clases"
+CARPETA_MATERIA = RAIZ.parents[2]          # .../visionArtificial
+DESTINO = RAIZ.parent / "compartido" / "clases"
 
 
 def arreglar_enlaces(texto: str) -> str:
@@ -51,7 +51,7 @@ def main() -> None:
             (DESTINO / "img").mkdir(exist_ok=True)
             shutil.copyfile(imagen, DESTINO / "img" / imagen.name)
 
-        print(f"{clase} -> {destino.relative_to(RAIZ)}")
+        print(f"{clase} -> {destino.relative_to(RAIZ.parent)}")
 
 
 if __name__ == "__main__":

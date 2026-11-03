@@ -8,7 +8,7 @@ regenera con el material de clase.
 
 1. Poner los recortes en `datos/senales/<CLASE>/` (una carpeta por clase:
    `PARE`, `SIGA`, `VELOCIDAD_60`, `ZONA_ESCOLAR`).
-2. Entrenar con el pipeline de `5_cnns/` apuntando `dataset_dir` a
+2. Entrenar con el pipeline de `cnn/` apuntando `dataset_dir` a
    `../datos/senales` (no se modifica el código del profesor).
 3. Copiar el `.keras` elegido aquí como `senales.keras`.
 

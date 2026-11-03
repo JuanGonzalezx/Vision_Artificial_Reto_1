@@ -7,7 +7,7 @@
 ## Contexto
 El Reto 2 pide reconocer cuatro señales (PARE, SIGA, ZONA ESCOLAR y VELOCIDAD
 60) con las CNN vistas en clase, y esta condición reemplaza la restricción del
-Reto 1 que prohibía el aprendizaje profundo. El material de clase (`5_cnns/`)
+Reto 1 que prohibía el aprendizaje profundo. El material de clase (`cnn/`)
 trae un pipeline de transfer learning con `keras.applications` (VGG16/19,
 MobileNet, ResNet50, DenseNet121) que espera una carpeta de imágenes por clase,
 pero **solo clasifica**: no dice dónde está la señal en el frame. El proyecto
@@ -45,7 +45,7 @@ las CNN de clase (Reto 2).
   son recortes, no escenas.
 - **Escanear la ROI por ventanas**: más robusto ante posiciones arbitrarias,
   pero multiplica el cómputo por frame y choca con el objetivo de tiempo real.
-- **Inferencia en el venv de `5_cnns`** (servicio/proceso aparte): evita la
+- **Inferencia en el venv de `cnn`** (servicio/proceso aparte): evita la
   dependencia pesada, pero agrega latencia y complejidad de comunicación.
 - **Detector de objetos (YOLO/SSD)**: fuera de las arquitecturas de clase y de
   las técnicas permitidas.
@@ -53,7 +53,7 @@ las CNN de clase (Reto 2).
 ## Resultados (2026-10-27)
 
 Dataset: 178 recortes de las 4 señales (PARE 43, SIGA 45, VELOCIDAD_60 45,
-ZONA_ESCOLAR 45), en `datos/senales/`. Entrenamiento con `5_cnns/cnn_trainer.py`
+ZONA_ESCOLAR 45), en `datos/senales/`. Entrenamiento con `cnn/cnn_trainer.py`
 vía `tools/entrenar_senales.py` (transfer learning, base congelada, 50 épocas
 máximo con early stopping, split 70/20/10 con `seed=42`).
 
