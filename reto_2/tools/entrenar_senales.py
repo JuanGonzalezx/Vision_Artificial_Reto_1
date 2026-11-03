@@ -1,7 +1,7 @@
 """Entrena las CNN de clase sobre los recortes de las señales (Reto 2).
 
 Usa sin modificar el pipeline del profesor (`cnn/cnn_trainer.py`): le apunta
-`dataset_dir` a `datos/senales/` (una carpeta por clase) y guarda los resultados
+`dataset_dir` a `cnn/dataset/` (carpetas 0..3, una por clase) y guarda los resultados
 —modelo `.keras`, matriz de confusión, curva de pérdida y reporte— en
 `modelos/entrenamiento/<experimento>/<modelo>/`.
 
@@ -26,7 +26,7 @@ from cnn_trainer import MODELOS, CNNTrainer  # noqa: E402
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Entrena las CNN de las señales (Reto 2).")
-    parser.add_argument("--datos", default="datos/senales", help="carpeta con una subcarpeta por clase.")
+    parser.add_argument("--datos", default="cnn/dataset", help="carpeta con una subcarpeta por clase.")
     parser.add_argument("--salida", default="modelos/entrenamiento", help="carpeta de resultados.")
     parser.add_argument("--experimento", default="senales_reto2", help="nombre del experimento.")
     parser.add_argument("--epocas", type=int, default=50, help="máximo de épocas (hay early stopping).")

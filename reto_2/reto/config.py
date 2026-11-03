@@ -110,9 +110,10 @@ class Config:
     # preprocess_input y el tamaño el resize de entrada.
     clase_modelo_senales: str = "MobileNet"      # la más rápida para tiempo real
     tamano_entrada_senales: tuple[int, int] = (224, 224)
-    # Orden de salida de la CNN = sorted() de las carpetas del dataset, igual
-    # que en cnn/cnn_trainer.py. Aquí se fija para no depender del disco.
-    clases_senales: tuple[str, ...] = ("PARE", "SIGA", "VELOCIDAD_60", "ZONA_ESCOLAR")
+    # Orden de salida de la CNN = sorted() de las carpetas del dataset
+    # (cnn/dataset/0..3), igual que en cnn/cnn_trainer.py:
+    # 0 = PARE, 1 = SIGA, 2 = ZONA_ESCOLAR, 3 = VELOCIDAD_60.
+    clases_senales: tuple[str, ...] = ("PARE", "SIGA", "ZONA_ESCOLAR", "VELOCIDAD_60")
     confianza_minima_senal: float = 0.6
     max_candidatos_senal: int = 3                # se clasifican los 3 de mayor área
     margen_candidato_senal: float = 0.15         # fracción del lado al recortar la caja

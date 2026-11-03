@@ -1,10 +1,10 @@
-# Reto 1 — Cerebro de un robot seguidor de línea
+# Reto 2 — Robot seguidor de línea con señales por CNN
 
 Visión Artificial en Tiempo Real · Universidad de Caldas · 2026-2
 
 El programa recibe imágenes de una webcam, un celular por IP o un archivo, detecta la línea y las señales PARE/SIGA, y produce una decisión de movimiento. Usa las técnicas del curso: HSV, máscaras, morfología y contornos; K-Means propone calibraciones fuera del procesamiento en tiempo real.
 
-**Reto 2 (en curso):** el reconocimiento de las cuatro señales —PARE, SIGA, ZONA ESCOLAR y VELOCIDAD 60— pasa por una **CNN** entrenada con el material de clase (`cnn/`). La localización es híbrida: el color propone dónde mirar y la CNN decide qué señal es. Falta entrenar/entrenar-comparar los modelos y agregar los comportamientos de velocidad al control. Ver la [decisión 0010](../docs/decisiones/0010-clasificador-cnn.md).
+**Reto 2 (en curso):** el reconocimiento de las cuatro señales —PARE, SIGA, ZONA ESCOLAR y VELOCIDAD 60— pasa por una **CNN** entrenada con las fotos tomadas en la pista (`cnn/dataset/`, carpetas 0 PARE · 1 SIGA · 2 ZONA_ESCOLAR · 3 VELOCIDAD_60). La localización es híbrida: el color propone dónde mirar y la CNN decide qué señal es. Falta entrenar/entrenar-comparar los modelos y agregar los comportamientos de velocidad al control. Ver la [decisión 0010](../docs/decisiones/0010-clasificador-cnn.md).
 
 **Estado al 29 de septiembre:** percepción, control, captura, HUD y grabación integrados, y el pipeline ya corre en vivo con el celular. Las salidas disponibles son consola, CSV y el robot (`reto/actuador_robot.py`, por Bluetooth o puerto serie). Falta la validación física con el mBot; no se modifica Arduino ni la electrónica.
 
@@ -114,15 +114,13 @@ reto/overlay.py          HUD y máscaras
 tests/                   Pruebas de integración y casos de error
 tools/                   Evaluación, calibración y preparación de datos
 simulacion/index.html    Demo independiente de Daniel
-docs/                    Arquitectura, bitácora, decisiones, clases y reto
-notebooks/               Material docente de referencia, limpio
+../docs/                 Documentación (en la raíz del repo)
 datos/clips/             Videos livianos de ensayo incluidos
 datos/frames/            Imágenes para calibración incluidas
 datos/originales/        Videos originales, ignorados por Git
 datos/grabaciones/       Salidas de ejecución y evaluación, ignoradas por Git
-datos/senales/           Recortes de las 4 señales, una carpeta por clase
 modelos/                 Modelo .keras entrenado para las señales (ignorado por Git)
-cnn/                  Material de clase: entrenamiento y comparación de CNN
+cnn/                     Dataset del reto (cnn/dataset) y entrenamiento de las CNN
 ```
 
-Los notebooks conservan ejemplos del profesor: algunos usan Colab o imágenes de internet y no son comandos del programa. Los apuntes de `docs/clases/` también mencionan demos externas de la carpeta de la materia. Para nuevos ensayos: guardar originales en `datos/originales/`, ejecutar `uv run python tools/preparar_videos.py`, evaluar y registrar los resultados en la bitácora.
+Los apuntes y notebooks de clase están en `../compartido/`. Para nuevos ensayos: guardar originales en `datos/originales/`, ejecutar `uv run python tools/preparar_videos.py`, evaluar y registrar los resultados en la bitácora.

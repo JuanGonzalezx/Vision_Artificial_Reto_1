@@ -23,6 +23,12 @@ datos/grabaciones/
 # el video de demostracion para la sustentacion tambien
 !docs/media/*.mp4
 
+# Recortes derivados de cnn/dataset (se regeneran con tools/preparar_senales.py)
+cnn/dataset_recortes/
+
+# Resultados de entrenar con cnn/main.py
+cnn/resultados/
+
 # Pesos de los modelos CNN de las señales (pesan; se regeneran entrenando)
 modelos/**/*.keras
 

@@ -10,25 +10,14 @@ Incluye preparación de datos, early stopping, exportación de modelos, métrica
 
 ```text
 cnn/
-├── .venv/                     # Entorno virtual de Python
-├── dataset/                   # Dataset unificado por categorías
-│   ├── 0/                     # cero_0.jpg, cero_1.jpg, ...
-│   ├── 1/                     # uno_0.jpg, ...
-│   └── ...                    # (hasta clase 9)
-├── resultados/                # Salidas generadas por experimentos
-│   └── <nombre_experimento>/
-│       ├── resultados.csv     # Resumen comparativo de todos los modelos
-│       ├── comparativa_val_loss.png
-│       └── <nombre_modelo>/
-│           ├── <nombre_modelo>.keras
-│           ├── perdida_<nombre_modelo>.png
-│           ├── matriz_confusion_<nombre_modelo>.png
-│           └── reporte_clasificacion_<nombre_modelo>.txt
-├── cnn_trainer.py             # Clase CNNTrainer con la lógica de entrenamiento y evaluación
-├── main.py                    # Script principal de configuración y ejecución
-├── particionador.py           # Utilidad para unificar splits (train/test) y renombrar archivos
-├── requirements.txt           # Dependencias del proyecto
-└── .gitignore                 # Exclusiones de Git
+├── dataset/                   # Dataset del reto (fotos tomadas en la pista)
+│   ├── 0/                     # PARE
+│   ├── 1/                     # SIGA
+│   ├── 2/                     # ZONA_ESCOLAR
+│   └── 3/                     # VELOCIDAD_60
+├── resultados/                # Salidas de cnn/main.py (ignorada por Git)
+├── cnn_trainer.py             # Clase CNNTrainer: entrenamiento y evaluación
+└── main.py                    # Configuración y ejecución de un experimento
 ```
 
 ---
@@ -47,25 +36,15 @@ Cada arquitectura aplica automáticamente su función de preprocesamiento espec�
 
 ---
 
-## Requisitos e Instalación
+## Cómo se ejecuta
 
-### 1. Requisitos previos
-- Python 3.10 o superior (recomendado Python 3.10).
+El entorno es el de `reto_2/` (`uv sync --locked`). Desde `reto_2/cnn/`:
 
-### 2. Crear y activar el entorno virtual
-
-En Windows (PowerShell):
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+```bash
+uv run python main.py
 ```
 
-### 3. Instalar dependencias
-
-```powershell
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+o con el dataset del reto desde `reto_2/`: `uv run python tools/entrenar_senales.py`.
 
 ---
 

@@ -145,7 +145,7 @@ class PruebasConfigClasificador(unittest.TestCase):
                 Config(**caso)
 
     def test_las_clases_como_lista_se_convierten_en_tupla(self):
-        config = Config(clases_senales=["PARE", "SIGA", "VELOCIDAD_60", "ZONA_ESCOLAR"])
+        config = Config(clases_senales=["PARE", "SIGA", "ZONA_ESCOLAR", "VELOCIDAD_60"])
         self.assertIsInstance(config.clases_senales, tuple)
 
 

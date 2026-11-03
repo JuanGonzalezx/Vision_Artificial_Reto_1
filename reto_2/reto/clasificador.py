@@ -2,7 +2,7 @@
 
 La localización es híbrida: `senales.proponer_candidatos` propone regiones por
 color y aquí se clasifica cada recorte con el modelo de Keras entrenado en
-clase (material en `cnn/`, dataset en `datos/senales/`). Así la CNN decide
+clase (material en `cnn/`, dataset en `cnn/dataset/`). Así la CNN decide
 *qué* señal es y el color solo decide *dónde* mirar.
 
 El modelo usa las arquitecturas de `keras.applications` (VGG16/19, MobileNet,
@@ -57,7 +57,7 @@ def cargar_modelo(config: Config):
     if not Path(ruta).is_file():
         raise FileNotFoundError(
             f"No existe el modelo de señales en '{ruta}'. Entrénalo con el pipeline "
-            f"de cnn sobre datos/senales/ y copia el .keras elegido ahí "
+            f"de cnn sobre cnn/dataset/ y copia el .keras elegido ahí "
             f"(ver ../docs/decisiones/0010-clasificador-cnn.md)."
         )
 

@@ -1,34 +1,23 @@
 # Modelos de señales (Reto 2)
 
-Aquí va el modelo CNN entrenado que usa el pipeline (`reto/clasificador.py`).
-El archivo `.keras` pesa y **no se sube al repo** (está en `.gitignore`); se
-regenera con el material de clase.
+Aquí va el modelo CNN que usa el pipeline (`reto/clasificador.py`). El `.keras`
+pesa y **no se sube al repo** (`.gitignore`); se regenera entrenando.
 
 ## Cómo generarlo
 
-1. Poner los recortes en `datos/senales/<CLASE>/` (una carpeta por clase:
-   `PARE`, `SIGA`, `VELOCIDAD_60`, `ZONA_ESCOLAR`).
-2. Entrenar con el pipeline de `cnn/` apuntando `dataset_dir` a
-   `../datos/senales` (no se modifica el código del profesor).
-3. Copiar el `.keras` elegido aquí como `senales.keras`.
-
-## Modelos ya entrenados
-
-Resultados en `modelos/entrenamiento/senales_reto2/` (matriz de confusión, curva
-de pérdida y reporte por arquitectura). Los dos mejores por `val_loss` son
-ResNet50 y MobileNet; el pipeline integra **MobileNet** (el más liviano):
-
-```bash
-cp modelos/entrenamiento/senales_reto2/MobileNet/MobileNet.keras modelos/senales.keras
-```
+1. El dataset está en `cnn/dataset/`, una carpeta por clase:
+   `0` = PARE, `1` = SIGA, `2` = ZONA_ESCOLAR, `3` = VELOCIDAD_60.
+2. Entrenar con `cnn/cnn_trainer.py`, directo (`cnn/main.py`) o con
+   `uv run python tools/entrenar_senales.py --modelos MobileNet`; los resultados
+   (matriz de confusión, curva de pérdida y reporte) quedan en `modelos/entrenamiento/`.
+3. Copiar el `.keras` elegido aquí como `modelos/senales.keras`.
 
 ## Cómo lo usa el pipeline
 
-- `config.ruta_modelo_senales` = `modelos/senales.keras` (por defecto).
-- `config.clase_modelo_senales` y `config.tamano_entrada_senales` **deben
-  coincidir** con lo usado al entrenar: el nombre elige el `preprocess_input`.
-- `config.clases_senales` es el `sorted()` de las carpetas del dataset (el orden
-  de salida de la CNN).
+- `config.ruta_modelo_senales` = `modelos/senales.keras`.
+- `config.clase_modelo_senales` y `config.tamano_entrada_senales` **deben coincidir**
+  con lo usado al entrenar: el nombre elige el `preprocess_input`.
+- `config.clases_senales` sigue el orden de las carpetas del dataset (`0..3`).
 
 Mientras no exista el archivo, el pipeline avisa una vez y usa el detector por
 color del Reto 1. Ver `docs/decisiones/0010-clasificador-cnn.md`.

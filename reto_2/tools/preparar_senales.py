@@ -1,13 +1,13 @@
 """Prepara los recortes de las señales para entrenar la CNN (Reto 2).
 
-Toma las fotos de `datos/senales/<CLASE>/`, ubica la señal con las máscaras de
+Toma las fotos de `cnn/dataset/<clase>/`, ubica la señal con las máscaras de
 color (la misma localización que usa el pipeline en vivo: rojo, verde y
 amarillo) y guarda el recorte con margen, aplanado al tamaño de entrada de la
-CNN, en `datos/senales_recortes/<CLASE>/`. Así el entrenamiento y la inferencia
+CNN, en `cnn/dataset_recortes/<clase>/`. Así el entrenamiento y la inferencia
 recortan igual la señal.
 
     uv run python tools/preparar_senales.py
-    uv run python tools/preparar_senales.py --origen datos/senales --destino datos/senales_recortes
+    uv run python tools/preparar_senales.py --origen cnn/dataset --destino cnn/dataset_recortes
 
 Las fotos que no dan candidato se listan al final para revisarlas a mano.
 """
@@ -61,8 +61,8 @@ def preparar_imagen(ruta: Path, destino: Path, config: Config) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Prepara los recortes de las señales para la CNN.")
-    parser.add_argument("--origen", default="datos/senales", help="carpeta con una subcarpeta por clase.")
-    parser.add_argument("--destino", default="datos/senales_recortes", help="carpeta de recortes de salida.")
+    parser.add_argument("--origen", default="cnn/dataset", help="carpeta con una subcarpeta por clase.")
+    parser.add_argument("--destino", default="cnn/dataset_recortes", help="carpeta de recortes de salida.")
     argumentos = parser.parse_args()
 
     origen, destino = Path(argumentos.origen), Path(argumentos.destino)
