@@ -2,14 +2,14 @@
 
 La localización es híbrida: `senales.proponer_candidatos` propone regiones por
 color y aquí se clasifica cada recorte con el modelo de Keras entrenado en
-clase (material en `cnn/`, dataset en `datos/senales/`). Así la CNN decide
+clase (material en `compartido/cnn/`, dataset en `datos/senales/`). Así la CNN decide
 *qué* señal es y el color solo decide *dónde* mirar.
 
 El modelo usa las arquitecturas de `keras.applications` (VGG16/19, MobileNet,
 ResNet50, DenseNet121) con una cabeza propia, congeladas sobre ImageNet. Por eso
 en inferencia hay que replicar el mismo `preprocess_input` y el mismo tamaño de
 entrada con que se entrenó, y el orden de clases es el `sorted()` de las
-carpetas del dataset (igual que en `cnn/cnn_trainer.py`).
+carpetas del dataset (igual que en `compartido/cnn/cnn_trainer.py`).
 
 El import de `keras` va dentro de las funciones: es pesado y no debe cargarse
 cuando se usa el detector por color.

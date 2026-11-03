@@ -16,7 +16,7 @@ from pathlib import Path
 # Rango de color en HSV de OpenCV: H 0-179, S 0-255, V 0-255.
 Rango = tuple[tuple[int, int, int], tuple[int, int, int]]
 
-# Modelos CNN del material de clase (cnn/cnn_trainer.py) que se pueden
+# Modelos CNN del material de clase (compartido/cnn/cnn_trainer.py) que se pueden
 # integrar. El nombre elige el preprocesamiento en reto/clasificador.py y debe
 # coincidir con el que se usó al entrenar.
 MODELOS_SENALES = ("MobileNet", "ResNet50", "VGG16", "VGG19", "DenseNet121")
@@ -111,7 +111,7 @@ class Config:
     clase_modelo_senales: str = "MobileNet"      # la más rápida para tiempo real
     tamano_entrada_senales: tuple[int, int] = (224, 224)
     # Orden de salida de la CNN = sorted() de las carpetas del dataset, igual
-    # que en cnn/cnn_trainer.py. Aquí se fija para no depender del disco.
+    # que en compartido/cnn/cnn_trainer.py. Aquí se fija para no depender del disco.
     clases_senales: tuple[str, ...] = ("PARE", "SIGA", "VELOCIDAD_60", "ZONA_ESCOLAR")
     confianza_minima_senal: float = 0.6
     max_candidatos_senal: int = 3                # se clasifican los 3 de mayor área
