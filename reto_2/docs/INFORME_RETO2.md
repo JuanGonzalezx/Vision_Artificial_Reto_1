@@ -14,7 +14,7 @@
 | `reto/config.py` | Opciones `detector_senales` (`cnn`/`color`), `ruta_modelo_senales`, `clase_modelo_senales` (MobileNet), `clases_senales`, `confianza_minima_senal` (0.6), `max_candidatos_senal`, `hsv_amarillo`; `hsv_verde` ampliado a H≤95. |
 | `reto/tipos.py` | `ResultadoSenal.confianza` (default 0.0). |
 | `reto/overlay.py` | Ajustes para nuevas clases. |
-| `../compartido/cnn/` | Material de clase (trainer, dataset, README). |
+| `cnn/` | Material de clase (trainer, dataset, README). |
 | `tools/` | `preparar_senales.py`, `entrenar_senales.py`. |
 | `datos/senales/` | 178 recortes: PARE 43, SIGA 45, VELOCIDAD_60 45, ZONA_ESCOLAR 45. |
 | `modelos/entrenamiento/senales_reto2/` | Matrices de confusión, curvas de pérdida, reportes y `resultados.csv` de 5 arquitecturas. |

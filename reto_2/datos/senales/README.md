@@ -1,7 +1,7 @@
 # Dataset de señales (Reto 2)
 
 Recortes de las cuatro señales, **una carpeta por clase**. Es el formato que
-espera el pipeline de entrenamiento (`compartido/cnn/cnn_trainer.py`): la clase de cada
+espera el pipeline de entrenamiento (`cnn/cnn_trainer.py`): la clase de cada
 imagen es el nombre de su carpeta y el orden de salida de la CNN es el
 `sorted()` de estos nombres.
 

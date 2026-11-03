@@ -1,6 +1,6 @@
 """Entrena las CNN de clase sobre los recortes de las señales (Reto 2).
 
-Usa sin modificar el pipeline del profesor (`compartido/cnn/cnn_trainer.py`): le apunta
+Usa sin modificar el pipeline del profesor (`cnn/cnn_trainer.py`): le apunta
 `dataset_dir` a `datos/senales/` (una carpeta por clase) y guarda los resultados
 —modelo `.keras`, matriz de confusión, curva de pérdida y reporte— en
 `modelos/entrenamiento/<experimento>/<modelo>/`.
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(RAIZ.parent / "compartido" / "cnn"))
+sys.path.insert(0, str(RAIZ / "cnn"))
 
 from cnn_trainer import MODELOS, CNNTrainer  # noqa: E402
 

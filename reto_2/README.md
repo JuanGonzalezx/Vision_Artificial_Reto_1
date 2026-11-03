@@ -122,7 +122,7 @@ datos/originales/        Videos originales, ignorados por Git
 datos/grabaciones/       Salidas de ejecución y evaluación, ignoradas por Git
 datos/senales/           Recortes de las 4 señales, una carpeta por clase
 modelos/                 Modelo .keras entrenado para las señales (ignorado por Git)
-../compartido/cnn/               Material de clase: entrenamiento y comparación de CNN
+cnn/                  Material de clase: entrenamiento y comparación de CNN
 ```
 
 Los notebooks conservan ejemplos del profesor: algunos usan Colab o imágenes de internet y no son comandos del programa. Los apuntes de `docs/clases/` también mencionan demos externas de la carpeta de la materia. Para nuevos ensayos: guardar originales en `datos/originales/`, ejecutar `uv run python tools/preparar_videos.py`, evaluar y registrar los resultados en la bitácora.
