@@ -69,8 +69,9 @@ class CNNTrainer:
 
         for idx, class_name in enumerate(class_names):
             class_dir = os.path.join(self.dataset_dir, class_name)
-            for root, _, files in os.walk(class_dir):
-                for file_name in files:
+            for root, dirs, files in os.walk(class_dir):
+                dirs.sort()  # orden fijo: la misma partición en cualquier equipo
+                for file_name in sorted(files):
                     ext = os.path.splitext(file_name)[1].lower()
                     if ext in extensiones:
                         file_paths.append(os.path.join(root, file_name))
@@ -99,9 +100,21 @@ class CNNTrainer:
             random_state=self.seed,
         )
 
+        self._guardar_particiones(train_paths, val_paths, test_paths)
+
         self.train_raw = self._crear_dataset(train_paths, train_labels, entrenar=True)
         self.val_raw = self._crear_dataset(val_paths, val_labels)
         self.test_raw = self._crear_dataset(test_paths, test_labels)
+
+    def _guardar_particiones(self, train_paths, val_paths, test_paths):
+        """Deja en el experimento qué imagen quedó en train, val o test."""
+        ruta = os.path.join(self.exp_dir, "particiones.csv")
+        with open(ruta, "w", newline="", encoding="utf-8") as f:
+            escritor = csv.writer(f)
+            escritor.writerow(["particion", "archivo"])
+            for nombre, paths in (("train", train_paths), ("val", val_paths), ("test", test_paths)):
+                for path in sorted(paths):
+                    escritor.writerow([nombre, os.path.relpath(path, self.dataset_dir).replace(os.sep, "/")])
 
     def _crear_dataset(self, paths, labels, entrenar=False):
         path_ds = tf.data.Dataset.from_tensor_slices((list(paths), list(labels)))
