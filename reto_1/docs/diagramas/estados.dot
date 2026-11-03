@@ -1,0 +1,14 @@
+digraph estados {
+  graph [rankdir=LR, fontname="Helvetica", bgcolor="#fcfcfb", pad=0.3, nodesep=0.6, ranksep=1.0];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, color="#c9c8c3", fillcolor="#ffffff", margin="0.25,0.12"];
+  edge  [fontname="Helvetica", fontsize=10, color="#7d7c78", fontcolor="#52514e", arrowsize=0.7];
+
+  SIGUIENDO [label="SIGUIENDO\ngira proporcional a la desviación\n(zona muerta ±0.12 = recto)", fillcolor="#eef4fc", color="#2a78d6"];
+  DETENIDO  [label="DETENIDO\nPARAR durante 3 s", fillcolor="#fdeceb", color="#e34948"];
+  BUSCANDO  [label="BUSCANDO\ngira hacia el último lado\ndonde vio la línea", fillcolor="#fff7e6", color="#eda100"];
+
+  SIGUIENDO -> DETENIDO  [label="PARE confirmado\n(3 frames, área suficiente,\nno obedecido hace < 5 s)"];
+  DETENIDO  -> SIGUIENDO [label="pasan 3 s\no llega SIGA"];
+  SIGUIENDO -> BUSCANDO  [label="5 frames sin línea\n(antes: mantiene rumbo)"];
+  BUSCANDO  -> SIGUIENDO [label="reaparece la línea"];
+}

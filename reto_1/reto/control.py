@@ -1,0 +1,121 @@
+"""Máquina de estados: de lo que se ve a lo que hace el robot.
+
+Dueño: Juan David.
+
+No usa OpenCV: solo decide. Eso lo hace fácil de probar sin cámara y fácil de
+explicar en la sustentación.
+
+Estados:
+  SIGUIENDO  gira proporcional a la desviación de la línea
+  DETENIDO   obedece un PARE durante config.segundos_pare
+  BUSCANDO   perdió la línea: gira hacia el último lado donde la vio
+"""
+
+from __future__ import annotations
+
+import time
+
+from .config import Config
+from .tipos import Accion, Decision, Estado, EstadoRobot, ResultadoLinea, ResultadoSenal
+
+
+def confirmar_senal(estado: Estado, senal: ResultadoSenal, config: Config) -> str | None:
+    """Exige que la misma señal aparezca en varios frames seguidos.
+
+    Evita frenar por un reflejo rojo o por un frame con ruido.
+    """
+    if senal.tipo is None or senal.area < config.area_minima_senal:
+        estado.frames_con_senal = 0
+        estado.senal_candidata = None
+        return None
+
+    if senal.tipo == estado.senal_candidata:
+        estado.frames_con_senal += 1
+    else:
+        estado.senal_candidata = senal.tipo
+        estado.frames_con_senal = 1
+
+    if estado.frames_con_senal >= config.frames_confirmacion_senal:
+        return senal.tipo
+
+    return None
+
+
+def _orden_de_giro(desviacion: float, config: Config) -> tuple[Accion, float]:
+    """Traduce una desviación a la misma orden con o sin línea visible."""
+    giro = max(-1.0, min(1.0, desviacion * config.ganancia_giro))
+    if abs(desviacion) < config.zona_muerta or giro == 0:
+        return Accion.RECTO, 0.0
+    accion = Accion.DERECHA if giro > 0 else Accion.IZQUIERDA
+    return accion, giro
+
+
+def es_curva(giro: float, curvatura: float, config: Config) -> bool:
+    """Indica si hay que frenar: la curva ya llegó (giro) o viene en camino (curvatura)."""
+    curva_presente = abs(giro) >= config.giro_para_frenar
+    curva_adelante = abs(curvatura) >= config.curvatura_para_frenar
+    return curva_presente or curva_adelante
+
+
+def decidir(estado: Estado, linea: ResultadoLinea, senal: ResultadoSenal,
+            config: Config, ahora: float | None = None,
+            curvatura: float = 0.0) -> Decision:
+    """Decide la acción de este frame y actualiza la memoria del robot.
+
+    `curvatura` es la diferencia entre la franja lejana y la cercana: no cambia
+    el rumbo, solo avisa que viene una curva para frenar antes de llegar.
+    """
+    ahora = time.monotonic() if ahora is None else ahora
+    senal_confirmada = confirmar_senal(estado, senal, config)
+
+    # 1. Si está detenido por un PARE, ahí se queda hasta cumplir el tiempo.
+    if estado.estado is EstadoRobot.DETENIDO:
+        reanuda_por_siga = config.siga_reanuda and senal_confirmada == "SIGA"
+
+        if ahora < estado.detenido_hasta and not reanuda_por_siga:
+            restante = estado.detenido_hasta - ahora
+            return Decision(Accion.PARAR, 0.0, f"PARE: faltan {restante:.1f}s")
+
+        estado.estado = EstadoRobot.SIGUIENDO
+
+    # 2. Un PARE confirmado detiene el robot (con espera para no repetir la misma señal).
+    desde_la_ultima = ahora - estado.ultima_senal_obedecida
+
+    if senal_confirmada == "PARE" and desde_la_ultima >= config.espera_entre_senales:
+        estado.estado = EstadoRobot.DETENIDO
+        estado.detenido_hasta = ahora + config.segundos_pare
+        estado.ultima_senal_obedecida = ahora
+        return Decision(Accion.PARAR, 0.0, f"PARE confirmado (area {senal.area:.0f})")
+
+    # 3. Sin línea: primero se mantiene el rumbo, y si sigue perdida, se busca.
+    if not linea.detectada:
+        estado.frames_sin_linea += 1
+
+        if estado.frames_sin_linea >= config.frames_para_buscar:
+            estado.estado = EstadoRobot.BUSCANDO
+            giro = 1.0 if estado.ultimo_giro >= 0 else -1.0
+            lado = "derecha" if giro > 0 else "izquierda"
+            return Decision(Accion.BUSCAR, giro, f"linea perdida: buscando hacia la {lado}")
+
+        # ultimo_giro conserva la desviación vista (también orienta BUSCAR).
+        # La orden debe conservar la ganancia y la zona muerta anteriores.
+        accion, giro = _orden_de_giro(estado.ultimo_giro, config)
+        return Decision(accion, giro,
+                        f"linea perdida hace {estado.frames_sin_linea} frames: mantengo rumbo",
+                        en_curva=es_curva(giro, 0.0, config))
+
+    # 4. Con línea: giro proporcional a la desviación; en curva, además, se frena.
+    estado.frames_sin_linea = 0
+    estado.estado = EstadoRobot.SIGUIENDO
+    estado.ultimo_giro = linea.desviacion
+
+    accion, giro = _orden_de_giro(linea.desviacion, config)
+    en_curva = es_curva(giro, curvatura, config)
+    aviso_curva = ", curva: frena" if en_curva else ""
+
+    if accion is Accion.RECTO:
+        return Decision(accion, giro, f"centrado ({linea.desviacion:+.2f}){aviso_curva}",
+                        en_curva=en_curva)
+
+    return Decision(accion, giro, f"desviacion {linea.desviacion:+.2f}{aviso_curva}",
+                    en_curva=en_curva)

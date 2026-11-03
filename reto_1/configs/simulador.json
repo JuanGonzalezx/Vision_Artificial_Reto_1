@@ -1,0 +1,7 @@
+{
+  "rotacion": 0,
+  "roi_linea_cercana": [0.30, 0.50],
+  "roi_linea_lejana": [0.10, 0.30],
+  "roi_senal": [0.0, 0.50],
+  "hsv_linea": [[0, 0, 0], [179, 90, 110]]
+}
