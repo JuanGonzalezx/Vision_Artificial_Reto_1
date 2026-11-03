@@ -18,4 +18,4 @@ uv run main.py --fuente <url|video|0>
 uv run pytest tests
 ```
 
-Reglas del equipo y estilo: `AGENTS.md`.
+Reglas del equipo y estilo: `AGENTS.md`. **Estado actual y pendientes del Reto 2: `ESTADO.md`.**
