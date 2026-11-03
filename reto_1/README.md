@@ -1,5 +1,7 @@
 # Reto 1 — Cerebro de un robot seguidor de línea
 
+> **Reto 1 finalizado y archivado.** Solo se conserva lo necesario para ejecutarlo (`main.py`, `reto/`, `configs/`, `datos/clips/`, `simulacion/`). Las herramientas (`tools/`), pruebas (`tests/`) y notebooks se retiraron; los comandos de este README que las usan quedan solo como referencia histórica (están en el commit `2e93b71`).
+
 Visión Artificial en Tiempo Real · Universidad de Caldas · 2026-2
 
 El programa recibe imágenes de una webcam, un celular por IP o un archivo, detecta la línea y las señales PARE/SIGA, y produce una decisión de movimiento. Usa las técnicas del curso: HSV, máscaras, morfología y contornos; K-Means propone calibraciones fuera del procesamiento en tiempo real.
